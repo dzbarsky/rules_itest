@@ -1,0 +1,15 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "svcinit_lib",
+    srcs = ["main.go"],
+    importpath = "rules_itest/cmd/svcinit",
+    visibility = ["//visibility:private"],
+    deps = ["//svclib"],
+)
+
+go_binary(
+    name = "svcinit",
+    embed = [":svcinit_lib"],
+    visibility = ["//visibility:public"],
+)

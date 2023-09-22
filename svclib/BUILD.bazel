@@ -1,0 +1,8 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "svclib",
+    srcs = ["types.go"],
+    importpath = "rules_itest/svclib",
+    visibility = ["//visibility:public"],
+)

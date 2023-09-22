@@ -1,0 +1,35 @@
+load("@rules_itest//:itest.bzl", "itest_service", "itest_service_group")
+
+package(default_visibility = ["//visibility:public"])
+
+itest_service(
+    name = "speedy_service",
+    args = [
+        "-port",
+        "8000",
+    ],
+    exe = "//go_service",
+    http_health_check_address = "http://localhost:8000",
+)
+
+itest_service(
+    name = "sleepy_service",
+    args = [
+        "-port",
+        "8001",
+        "-sleep-time",
+        "2s",
+        "-busy-time",
+        "2s",
+    ],
+    exe = "//go_service",
+    http_health_check_address = "http://localhost:8001",
+)
+
+itest_service_group(
+    name = "services",
+    services = [
+        ":sleepy_service",
+        ":slow_service",
+    ],
+)

@@ -1,0 +1,14 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "go_service_lib",
+    srcs = ["main.go"],
+    importpath = "rules_itest/tests/go_service",
+    visibility = ["//visibility:private"],
+)
+
+go_binary(
+    name = "go_service",
+    embed = [":go_service_lib"],
+    visibility = ["//visibility:public"],
+)

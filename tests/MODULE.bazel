@@ -1,0 +1,4 @@
+bazel_dep(name = "rules_itest")
+bazel_dep(name = "rules_go", version = "0.39.1")
+
+local_path_override(module_name = "rules_itest", path = "../")
