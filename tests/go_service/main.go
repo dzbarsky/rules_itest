@@ -23,13 +23,24 @@ func main() {
 
 	finishBusyWait := time.Now().Add(*busyWaitTime)
 	for time.Now().Before(finishBusyWait) {
-		fibSink = fib(10)
+		fibSink += fib(10)
 	}
+
+	dob := time.Now()
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 	})
+	http.HandleFunc("/dob", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(dob.String()))
+	})
+	http.HandleFunc("/fib", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(strconv.Itoa(fibSink)))
+	})
+
 	http.ListenAndServe("127.0.0.1:"+strconv.Itoa(*port), nil)
 }
 

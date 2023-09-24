@@ -78,13 +78,19 @@ func main() {
 		}
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
-		err = cmd.Start()
-		must(err)
-		defer cmd.Process.Kill()
 
-		if service.HttpHealthCheckAddress != "" {
-			waitUntilHealthy(cmd, service)
-			fmt.Println(cmd.ProcessState)
+		if service.Type == "task" {
+			err := cmd.Wait()
+			must(err)
+		} else {
+			err = cmd.Start()
+			must(err)
+			defer cmd.Process.Kill()
+
+			if service.HttpHealthCheckAddress != "" {
+				waitUntilHealthy(cmd, service)
+				fmt.Println(cmd.ProcessState)
+			}
 		}
 
 		serviceCmds = append(serviceCmds, ServiceCommand{

@@ -7,7 +7,15 @@ ServiceGroupInfo = provider(
     },
 )
 
-def _itest_service_impl(ctx):
+_itest_binary_attrs = {
+    "exe": attr.label(mandatory = True, executable = True, cfg = "target"),
+    "env": attr.string_dict(),
+    "args": attr.string_list(),
+    "data": attr.label_list(allow_files = True),
+    "deps": attr.label_list(providers = [ServiceGroupInfo]),
+}
+
+def _itest_binary_impl(ctx, extra_service_definition_kwargs):
     args = [
         ctx.expand_location(arg, targets = ctx.attr.data)
         for arg in ctx.attr.args
@@ -24,7 +32,7 @@ def _itest_service_impl(ctx):
         args = args,
         env = env,
         deps = ctx.attr.deps,
-        http_health_check_address = ctx.attr.http_health_check_address,
+        **extra_service_definition_kwargs
     )
 
     services = {service.label: service}
@@ -38,20 +46,29 @@ def _itest_service_impl(ctx):
         ServiceGroupInfo(services = services),
     ]
 
-_itest_service_attrs = {
-    "exe": attr.label(mandatory = True, executable = True, cfg = "target"),
-    "env": attr.string_dict(),
-    "args": attr.string_list(),
-    "data": attr.label_list(allow_files = True),
-    "deps": attr.label_list(providers = [ServiceGroupInfo]),
-    "verify_cmds": attr.string_list(),
+def _itest_service_impl(ctx):
+    return _itest_binary_impl(ctx, {
+        "type": "service",
+        "http_health_check_address": ctx.attr.http_health_check_address,
+    })
+
+_itest_service_attrs = _itest_binary_attrs | {
     "http_health_check_address": attr.string(),
 }
 
 itest_service = rule(
     implementation = _itest_service_impl,
     attrs = _itest_service_attrs,
-    #executable = True,
+)
+
+def _itest_task_impl(ctx):
+    return _itest_binary_impl(ctx, {
+        "type": "task",
+    })
+
+itest_task = rule(
+    implementation = _itest_task_impl,
+    attrs = _itest_binary_attrs,
 )
 
 def _itest_service_group_impl(ctx):
@@ -127,5 +144,4 @@ service_test = rule(
     implementation = _service_test_impl,
     attrs = _service_test_attrs,
     test = True,
-    #executable = True,
 )

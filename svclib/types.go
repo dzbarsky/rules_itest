@@ -1,6 +1,8 @@
 package svclib
 
 type Service struct {
+	// Type can be "service" or "task".
+	Type                   string            `json:"string"`
 	Label                  string            `json:"label"`
 	Args                   []string          `json:"args"`
 	Env                    map[string]string `json:"env"`
