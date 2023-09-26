@@ -14,3 +14,13 @@ service_test(
     ],
     test = ":_e2e_test",
 )
+
+service_test(
+    name = "e2e_test_interactive",
+    interactive = True,
+    services = [
+        "//:sleepy_service",
+    ],
+    tags = ["ibazel_notify_changes"],
+    test = ":_e2e_test",
+)

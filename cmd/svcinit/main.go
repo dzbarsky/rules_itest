@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -49,6 +50,19 @@ func main() {
 	flags := flag.NewFlagSet("svcinit", flag.ExitOnError)
 
 	serviceDefinitionsPath := flags.String("svc.definitions-path", "", "File defining which services to run")
+	isInteractive := flags.Bool("svc.interactive", false, "If true, integrate with bazel-watcher")
+
+	interactiveCh := make(chan struct{})
+	if *isInteractive {
+		go func() {
+			scanner := bufio.NewScanner(os.Stdin)
+			for scanner.Scan() {
+				fmt.Println(scanner.Text())
+				close(interactiveCh)
+				interactiveCh = make(chan struct{})
+			}
+		}()
+	}
 
 	// the flags library doesn't have a good way to ignore unknown args and return them
 	// so we do a hacky thing to achieve that behavior here.
@@ -118,51 +132,63 @@ func main() {
 		serviceCmds = append(serviceCmds, serviceCmd)
 	}
 
-	log.Printf("Executing test: %s\n", strings.Join(testArgs, " "))
-	testCmd := exec.Command(testArgs[0], testArgs[1:]...)
-	testCmd.Stdout = os.Stdout
-	testCmd.Stderr = os.Stderr
+	for {
+		log.Printf("Executing test: %s\n", strings.Join(testArgs, " "))
+		testCmd := exec.Command(testArgs[0], testArgs[1:]...)
+		testCmd.Stdout = os.Stdout
+		testCmd.Stderr = os.Stderr
 
-	testStartTime := time.Now()
+		testStartTime := time.Now()
 
-	if err := testCmd.Start(); err != nil {
-		panic(err)
-	}
-
-	testErr := testCmd.Wait()
-
-	testDuration := time.Since(testStartTime)
-	log.Printf("Test duration: %s\n", testDuration)
-
-	fmt.Println()
-	// API is                 NewWriter(output io.Writer, minwidth, tabwidth, padding int, padchar byte, flags uint) *Writer
-	reportWriter := tabwriter.NewWriter(os.Stdout, 0, 4, 4, ' ', 0)
-	reportWriter.Write([]byte("Target\tUser Time\tSystem Time\n"))
-
-	for _, serviceCmd := range serviceCmds {
-		serviceCmd.Cmd.Process.Kill()
-		serviceCmd.Cmd.Wait()
-
-		for serviceCmd.Cmd.ProcessState == nil {
-			time.Sleep(5 * time.Millisecond)
+		if err := testCmd.Start(); err != nil {
+			panic(err)
 		}
-		state := serviceCmd.Cmd.ProcessState
+
+		testErr := testCmd.Wait()
+
+		testDuration := time.Since(testStartTime)
+		log.Printf("Test duration: %s\n", testDuration)
+
+		fmt.Println()
+		// API is                 NewWriter(output io.Writer, minwidth, tabwidth, padding int, padchar byte, flags uint) *Writer
+		reportWriter := tabwriter.NewWriter(os.Stdout, 0, 4, 4, ' ', 0)
+		reportWriter.Write([]byte("Target\tUser Time\tSystem Time\n"))
+
+		if !*isInteractive {
+			for _, serviceCmd := range serviceCmds {
+				serviceCmd.Cmd.Process.Kill()
+				serviceCmd.Cmd.Wait()
+
+				for serviceCmd.Cmd.ProcessState == nil {
+					time.Sleep(5 * time.Millisecond)
+				}
+				state := serviceCmd.Cmd.ProcessState
+
+				_, err = reportWriter.Write([]byte(fmt.Sprintf("%s\t%s\t%s\n",
+					serviceCmd.Service.Label, state.UserTime(), state.SystemTime())))
+				must(err)
+			}
+		}
 
 		_, err = reportWriter.Write([]byte(fmt.Sprintf("%s\t%s\t%s\n",
-			serviceCmd.Service.Label, state.UserTime(), state.SystemTime())))
+			testArgs[0], testCmd.ProcessState.UserTime(), testCmd.ProcessState.SystemTime())))
 		must(err)
-	}
 
-	_, err = reportWriter.Write([]byte(fmt.Sprintf("%s\t%s\t%s\n",
-		testArgs[0], testCmd.ProcessState.UserTime(), testCmd.ProcessState.SystemTime())))
-	must(err)
+		err = reportWriter.Flush()
+		must(err)
 
-	err = reportWriter.Flush()
-	must(err)
+		if testErr != nil {
+			log.Printf("Encountered error during test run: %s\n", testErr)
+			if !*isInteractive {
+				os.Exit(1)
+			}
+		}
 
-	if testErr != nil {
-		log.Printf("Encountered error during test run: %s\n", testErr)
-		os.Exit(1)
+		if !*isInteractive {
+			break
+		}
+
+		<-interactiveCh
 	}
 }
 
@@ -181,6 +207,7 @@ func waitUntilHealthy(serviceCmd *ServiceCommand) bool {
 			log.Printf("%s healthy!\n", serviceCmd.Label)
 			return true
 		}
+
 		fmt.Println(err)
 		time.Sleep(200 * time.Millisecond)
 	}
