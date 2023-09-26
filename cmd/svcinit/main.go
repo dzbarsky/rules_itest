@@ -9,6 +9,8 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
+	"text/tabwriter"
 	"time"
 
 	"rules_itest/svclib"
@@ -21,8 +23,26 @@ func must(err error) {
 }
 
 type ServiceCommand struct {
-	Service svclib.Service
-	Cmd     *exec.Cmd
+	svclib.Service
+	*exec.Cmd
+
+	mu     sync.Mutex
+	runErr error
+}
+
+func (s *ServiceCommand) Start() {
+	go func() {
+		err := s.Run()
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		s.runErr = err
+	}()
+}
+
+func (s *ServiceCommand) Error() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.runErr
 }
 
 func main() {
@@ -69,7 +89,7 @@ func main() {
 	err = json.Unmarshal(data, &services)
 	must(err)
 
-	var serviceCmds []ServiceCommand
+	var serviceCmds []*ServiceCommand
 
 	for _, service := range services {
 		cmd := exec.Command(service.Exe, service.Args...)
@@ -79,27 +99,26 @@ func main() {
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 
+		serviceCmd := &ServiceCommand{
+			Service: service,
+			Cmd:     cmd,
+		}
+
 		if service.Type == "task" {
 			err := cmd.Wait()
 			must(err)
 		} else {
-			err = cmd.Start()
-			must(err)
-			defer cmd.Process.Kill()
+			serviceCmd.Start()
 
 			if service.HttpHealthCheckAddress != "" {
-				waitUntilHealthy(cmd, service)
-				fmt.Println(cmd.ProcessState)
+				waitUntilHealthy(serviceCmd)
 			}
 		}
 
-		serviceCmds = append(serviceCmds, ServiceCommand{
-			Service: service,
-			Cmd:     cmd,
-		})
+		serviceCmds = append(serviceCmds, serviceCmd)
 	}
 
-	log.Printf("Executing command: %s\n", strings.Join(testArgs, " "))
+	log.Printf("Executing test: %s\n", strings.Join(testArgs, " "))
 	testCmd := exec.Command(testArgs[0], testArgs[1:]...)
 	testCmd.Stdout = os.Stdout
 	testCmd.Stderr = os.Stderr
@@ -114,21 +133,32 @@ func main() {
 
 	testDuration := time.Since(testStartTime)
 	log.Printf("Test duration: %s\n", testDuration)
-	log.Printf("Test resource utilization: User: %v System: %v",
-		testCmd.ProcessState.UserTime(), testCmd.ProcessState.SystemTime())
+
+	fmt.Println()
+	// API is                 NewWriter(output io.Writer, minwidth, tabwidth, padding int, padchar byte, flags uint) *Writer
+	reportWriter := tabwriter.NewWriter(os.Stdout, 0, 4, 4, ' ', 0)
+	reportWriter.Write([]byte("Target\tUser Time\tSystem Time\n"))
 
 	for _, serviceCmd := range serviceCmds {
 		serviceCmd.Cmd.Process.Kill()
 		serviceCmd.Cmd.Wait()
 
-		state := serviceCmd.Cmd.ProcessState
-		if state == nil {
-			log.Print("TODO: nil process state")
-			continue
+		for serviceCmd.Cmd.ProcessState == nil {
+			time.Sleep(5 * time.Millisecond)
 		}
-		log.Printf("%s resource utilization: User: %v System: %v",
-			serviceCmd.Service.Label, state.UserTime(), state.SystemTime())
+		state := serviceCmd.Cmd.ProcessState
+
+		_, err = reportWriter.Write([]byte(fmt.Sprintf("%s\t%s\t%s\n",
+			serviceCmd.Service.Label, state.UserTime(), state.SystemTime())))
+		must(err)
 	}
+
+	_, err = reportWriter.Write([]byte(fmt.Sprintf("%s\t%s\t%s\n",
+		testArgs[0], testCmd.ProcessState.UserTime(), testCmd.ProcessState.SystemTime())))
+	must(err)
+
+	err = reportWriter.Flush()
+	must(err)
 
 	if testErr != nil {
 		log.Printf("Encountered error during test run: %s\n", testErr)
@@ -136,33 +166,22 @@ func main() {
 	}
 }
 
-func waitUntilHealthy(cmd *exec.Cmd, service svclib.Service) bool {
-	exitedCh := make(chan struct{})
-	go func() {
-		status, err := cmd.Process.Wait()
-		must(err)
-		if status.Exited() {
-			close(exitedCh)
-		}
-	}()
+func waitUntilHealthy(serviceCmd *ServiceCommand) bool {
 	for {
-		select {
-		case <-exitedCh:
+		if serviceCmd.Error() != nil {
 			return false
-		default:
 		}
 
-		log.Printf("Healthchecking %s at %s...\n", service.Label, service.HttpHealthCheckAddress)
-		resp, err := http.DefaultClient.Get(service.HttpHealthCheckAddress)
+		//log.Printf("Healthchecking %s at %s...\n", service.Label, service.HttpHealthCheckAddress)
+		resp, err := http.DefaultClient.Get(serviceCmd.HttpHealthCheckAddress)
 		if resp != nil {
 			defer resp.Body.Close()
 		}
 		if err == nil {
-			log.Printf("%s healthy!\n", service.Label)
+			log.Printf("%s healthy!\n", serviceCmd.Label)
 			return true
 		}
 		fmt.Println(err)
 		time.Sleep(200 * time.Millisecond)
-		fmt.Println("status", cmd.Process)
 	}
 }
