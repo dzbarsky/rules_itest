@@ -30,6 +30,6 @@ itest_service_group(
     name = "services",
     services = [
         ":sleepy_service",
-        ":slow_service",
+        ":speedy_service",
     ],
 )

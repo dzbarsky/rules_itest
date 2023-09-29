@@ -51,9 +51,9 @@ func main() {
 	flags := flag.NewFlagSet("svcinit", flag.ExitOnError)
 
 	serviceDefinitionsPath := flags.String("svc.definitions-path", "", "File defining which services to run")
-	flags.Bool("svc.interactive", false, "If true, integrate with bazel-watcher")
 
 	isInteractive := os.Getenv("IBAZEL_NOTIFY_CHANGES") == "y"
+	fmt.Println("interactive? ", isInteractive)
 
 	interactiveCh := make(chan struct{}, 100)
 	if isInteractive {
