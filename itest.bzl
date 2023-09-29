@@ -16,6 +16,17 @@ _itest_binary_attrs = {
 }
 
 def _itest_binary_impl(ctx, extra_service_definition_kwargs):
+    version_file = ctx.actions.declare_file(ctx.label.name + ".version")
+
+    version_file_deps = ctx.files.data + ctx.files.exe
+    version_file_deps_trans = [ctx.attr.exe.default_runfiles.files]
+
+    _create_version_file(
+        ctx,
+        depset(direct = version_file_deps, transitive = version_file_deps_trans),
+        output = version_file,
+    )
+
     args = [
         ctx.expand_location(arg, targets = ctx.attr.data)
         for arg in ctx.attr.args
@@ -32,6 +43,7 @@ def _itest_binary_impl(ctx, extra_service_definition_kwargs):
         args = args,
         env = env,
         deps = ctx.attr.deps,
+        version_file = version_file.short_path,
         **extra_service_definition_kwargs
     )
 
@@ -39,7 +51,7 @@ def _itest_binary_impl(ctx, extra_service_definition_kwargs):
     for dep in ctx.attr.deps:
         services.update(dep[ServiceGroupInfo].services)
 
-    runfiles = ctx.runfiles(ctx.attr.data).merge(ctx.attr.exe.default_runfiles)
+    runfiles = ctx.runfiles(ctx.attr.data + [version_file]).merge(ctx.attr.exe.default_runfiles)
 
     return [
         DefaultInfo(runfiles = runfiles),
@@ -147,3 +159,17 @@ service_test = rule(
     attrs = _service_test_attrs,
     test = True,
 )
+
+def _create_version_file(ctx, inputs, output):
+    ctx.actions.run_shell(
+        inputs = inputs,
+        tools = [],  # Ensure inputs in the host configuration are not treated specially.
+        outputs = [output],
+        command = "/bin/date > {}".format(
+            output.path,
+        ),
+        mnemonic = "SvcVersionFile",
+        # disable remote cache and sandbox, since the output is not stable given the inputs
+        # additionally, running this action in the sandbox is way too expensive
+        execution_requirements = {"local": "1"},
+    )

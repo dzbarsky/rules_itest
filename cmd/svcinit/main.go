@@ -26,6 +26,7 @@ func must(err error) {
 type ServiceCommand struct {
 	svclib.Service
 	*exec.Cmd
+	Version []byte
 
 	mu     sync.Mutex
 	runErr error
@@ -50,16 +51,21 @@ func main() {
 	flags := flag.NewFlagSet("svcinit", flag.ExitOnError)
 
 	serviceDefinitionsPath := flags.String("svc.definitions-path", "", "File defining which services to run")
-	isInteractive := flags.Bool("svc.interactive", false, "If true, integrate with bazel-watcher")
+	flags.Bool("svc.interactive", false, "If true, integrate with bazel-watcher")
 
-	interactiveCh := make(chan struct{})
-	if *isInteractive {
+	isInteractive := os.Getenv("IBAZEL_NOTIFY_CHANGES") == "y"
+
+	interactiveCh := make(chan struct{}, 100)
+	if isInteractive {
 		go func() {
 			scanner := bufio.NewScanner(os.Stdin)
 			for scanner.Scan() {
 				fmt.Println(scanner.Text())
-				close(interactiveCh)
-				interactiveCh = make(chan struct{})
+
+				// TODO: better notification setup needed
+				interactiveCh <- struct{}{}
+				//close(interactiveCh)
+				//interactiveCh = make(chan struct{})
 			}
 		}()
 	}
@@ -103,33 +109,17 @@ func main() {
 	err = json.Unmarshal(data, &services)
 	must(err)
 
-	var serviceCmds []*ServiceCommand
+	serviceCmds := make(map[string]*ServiceCommand)
 
 	for _, service := range services {
-		cmd := exec.Command(service.Exe, service.Args...)
-		for k, v := range service.Env {
-			cmd.Env = append(cmd.Env, k+"="+v)
-		}
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
+		serviceCmd := startService(service)
 
-		serviceCmd := &ServiceCommand{
-			Service: service,
-			Cmd:     cmd,
-		}
-
-		if service.Type == "task" {
-			err := cmd.Wait()
+		if service.VersionFile != "" {
+			serviceCmd.Version, err = os.ReadFile(service.VersionFile)
 			must(err)
-		} else {
-			serviceCmd.Start()
-
-			if service.HttpHealthCheckAddress != "" {
-				waitUntilHealthy(serviceCmd)
-			}
 		}
 
-		serviceCmds = append(serviceCmds, serviceCmd)
+		serviceCmds[service.Label] = serviceCmd
 	}
 
 	for {
@@ -154,14 +144,9 @@ func main() {
 		reportWriter := tabwriter.NewWriter(os.Stdout, 0, 4, 4, ' ', 0)
 		reportWriter.Write([]byte("Target\tUser Time\tSystem Time\n"))
 
-		if !*isInteractive {
+		if !isInteractive {
 			for _, serviceCmd := range serviceCmds {
-				serviceCmd.Cmd.Process.Kill()
-				serviceCmd.Cmd.Wait()
-
-				for serviceCmd.Cmd.ProcessState == nil {
-					time.Sleep(5 * time.Millisecond)
-				}
+				stopService(serviceCmd)
 				state := serviceCmd.Cmd.ProcessState
 
 				_, err = reportWriter.Write([]byte(fmt.Sprintf("%s\t%s\t%s\n",
@@ -179,16 +164,81 @@ func main() {
 
 		if testErr != nil {
 			log.Printf("Encountered error during test run: %s\n", testErr)
-			if !*isInteractive {
+			if !isInteractive {
 				os.Exit(1)
 			}
 		}
 
-		if !*isInteractive {
+		if !isInteractive {
 			break
 		}
 
 		<-interactiveCh
+
+		// See which services need a restart
+		data, err := os.ReadFile(*serviceDefinitionsPath)
+		must(err)
+		fmt.Println(string(data))
+
+		var services map[string]svclib.Service
+		err = json.Unmarshal(data, &services)
+		must(err)
+
+		for _, service := range services {
+			serviceCmd, ok := serviceCmds[service.Label]
+			if !ok {
+				serviceCmd = startService(service)
+				serviceCmds[service.Label] = serviceCmd
+			}
+
+			if service.VersionFile != "" {
+				version, err := os.ReadFile(service.VersionFile)
+				must(err)
+				if string(version) != string(serviceCmd.Version) {
+					fmt.Println(service.Label + " is stale, restarting...")
+					stopService(serviceCmd)
+					serviceCmd = startService(service)
+					serviceCmds[service.Label] = serviceCmd
+				}
+				serviceCmd.Version = version
+			}
+		}
+	}
+}
+
+func startService(service svclib.Service) *ServiceCommand {
+	cmd := exec.Command(service.Exe, service.Args...)
+	for k, v := range service.Env {
+		cmd.Env = append(cmd.Env, k+"="+v)
+	}
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	serviceCmd := &ServiceCommand{
+		Service: service,
+		Cmd:     cmd,
+	}
+
+	if service.Type == "task" {
+		err := cmd.Wait()
+		must(err)
+	} else {
+		serviceCmd.Start()
+
+		if service.HttpHealthCheckAddress != "" {
+			waitUntilHealthy(serviceCmd)
+		}
+	}
+
+	return serviceCmd
+}
+
+func stopService(serviceCmd *ServiceCommand) {
+	serviceCmd.Cmd.Process.Kill()
+	serviceCmd.Cmd.Wait()
+
+	for serviceCmd.Cmd.ProcessState == nil {
+		time.Sleep(5 * time.Millisecond)
 	}
 }
 

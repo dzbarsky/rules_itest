@@ -8,4 +8,5 @@ type Service struct {
 	Env                    map[string]string `json:"env"`
 	Exe                    string            `json:"exe"`
 	HttpHealthCheckAddress string            `json:"http_health_check_address"`
+	VersionFile            string            `json:"version_file"`
 }
