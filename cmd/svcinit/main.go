@@ -50,13 +50,13 @@ func (s *ServiceCommand) Error() error {
 func main() {
 	flags := flag.NewFlagSet("svcinit", flag.ExitOnError)
 
+	testLabel := flags.String("svc.test-label", "", "Label for the test to run, if any. If none, test will not be executed.")
 	serviceDefinitionsPath := flags.String("svc.definitions-path", "", "File defining which services to run")
 
-	isInteractive := os.Getenv("IBAZEL_NOTIFY_CHANGES") == "y"
-	fmt.Println("interactive? ", isInteractive)
+	shouldHotReload := os.Getenv("IBAZEL_NOTIFY_CHANGES") == "y"
 
 	interactiveCh := make(chan struct{}, 100)
-	if isInteractive {
+	if shouldHotReload {
 		go func() {
 			scanner := bufio.NewScanner(os.Stdin)
 			for scanner.Scan() {
@@ -101,6 +101,8 @@ func main() {
 	}
 	_ = flags.Parse(svcInitArgs)
 
+	isOneShot := !shouldHotReload && *testLabel != ""
+
 	data, err := os.ReadFile(*serviceDefinitionsPath)
 	must(err)
 	fmt.Println(string(data))
@@ -123,28 +125,32 @@ func main() {
 	}
 
 	for {
-		log.Printf("Executing test: %s\n", strings.Join(testArgs, " "))
-		testCmd := exec.Command(testArgs[0], testArgs[1:]...)
-		testCmd.Stdout = os.Stdout
-		testCmd.Stderr = os.Stderr
+		var testCmd *exec.Cmd
+		var testErr error
+		if *testLabel != "" {
+			log.Printf("Executing test: %s\n", strings.Join(testArgs, " "))
+			testCmd = exec.Command(testArgs[0], testArgs[1:]...)
+			testCmd.Stdout = os.Stdout
+			testCmd.Stderr = os.Stderr
 
-		testStartTime := time.Now()
+			testStartTime := time.Now()
 
-		if err := testCmd.Start(); err != nil {
-			panic(err)
+			if err := testCmd.Start(); err != nil {
+				panic(err)
+			}
+
+			testErr = testCmd.Wait()
+
+			testDuration := time.Since(testStartTime)
+			log.Printf("Test duration: %s\n", testDuration)
 		}
-
-		testErr := testCmd.Wait()
-
-		testDuration := time.Since(testStartTime)
-		log.Printf("Test duration: %s\n", testDuration)
 
 		fmt.Println()
 		// API is                 NewWriter(output io.Writer, minwidth, tabwidth, padding int, padchar byte, flags uint) *Writer
 		reportWriter := tabwriter.NewWriter(os.Stdout, 0, 4, 4, ' ', 0)
 		reportWriter.Write([]byte("Target\tUser Time\tSystem Time\n"))
 
-		if !isInteractive {
+		if isOneShot {
 			for _, serviceCmd := range serviceCmds {
 				stopService(serviceCmd)
 				state := serviceCmd.Cmd.ProcessState
@@ -155,21 +161,23 @@ func main() {
 			}
 		}
 
-		_, err = reportWriter.Write([]byte(fmt.Sprintf("%s\t%s\t%s\n",
-			testArgs[0], testCmd.ProcessState.UserTime(), testCmd.ProcessState.SystemTime())))
-		must(err)
+		if *testLabel != "" {
+			_, err = reportWriter.Write([]byte(fmt.Sprintf("%s\t%s\t%s\n",
+				*testLabel, testCmd.ProcessState.UserTime(), testCmd.ProcessState.SystemTime())))
+			must(err)
+		}
 
 		err = reportWriter.Flush()
 		must(err)
 
 		if testErr != nil {
 			log.Printf("Encountered error during test run: %s\n", testErr)
-			if !isInteractive {
+			if isOneShot {
 				os.Exit(1)
 			}
 		}
 
-		if !isInteractive {
+		if isOneShot {
 			break
 		}
 

@@ -136,7 +136,7 @@ def _create_svcinit_actions(ctx, extra_svcinit_args = ""):
     return services, service_defs_file
 
 def _service_test_impl(ctx):
-    extra_svcinit_args = [ctx.executable.test.short_path]
+    extra_svcinit_args = ["--svc.test-label", str(ctx.label), ctx.executable.test.short_path]
     _, service_defs_file = _create_svcinit_actions(ctx, extra_svcinit_args = " ".join(extra_svcinit_args))
 
     runfiles = ctx.runfiles(ctx.attr.data + [service_defs_file]).merge_all([
