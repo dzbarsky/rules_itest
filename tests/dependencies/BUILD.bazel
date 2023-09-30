@@ -1,4 +1,4 @@
-load("@rules_itest//:itest.bzl", "itest_service", "service_test")
+load("@rules_itest//:itest.bzl", "itest_task", "service_test")
 
 sh_binary(
     name = "write_to_file",
@@ -8,7 +8,7 @@ sh_binary(
 MESSAGE = "hello world"
 
 [
-    itest_service(
+    itest_task(
         name = "write_" + str(i),
         args = [
             MESSAGE[i],

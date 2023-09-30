@@ -1,3 +1,3 @@
-#!/bin/sh
+#!/bin/bash
 
-echo $1 >> "$TEST_TMPDIR/out.txt"
+echo -n "$1" >> "$TEST_TMPDIR/out.txt"
