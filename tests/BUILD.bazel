@@ -8,6 +8,7 @@ itest_service(
         "-port",
         "8000",
     ],
+    env = {"foo": "bar"},
     exe = "//go_service",
     http_health_check_address = "http://localhost:8000",
 )

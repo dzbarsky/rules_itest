@@ -7,13 +7,22 @@ ServiceGroupInfo = provider(
     },
 )
 
+def _collect_services(ctx):
+    services = {}
+    for dep in ctx.attr.services:
+        services |= dep[ServiceGroupInfo].services
+    return services
+
+_svcinit_attr = {
+    "_svcinit": attr.label(default = "//cmd/svcinit", executable = True, cfg = "target"),
+}
+
 _itest_binary_attrs = {
     "exe": attr.label(mandatory = True, executable = True, cfg = "target"),
     "env": attr.string_dict(),
-    "args": attr.string_list(),
     "data": attr.label_list(allow_files = True),
     "deps": attr.label_list(providers = [ServiceGroupInfo]),
-}
+} | _svcinit_attr
 
 def _itest_binary_impl(ctx, extra_service_definition_kwargs):
     version_file = ctx.actions.declare_file(ctx.label.name + ".version")
@@ -34,7 +43,7 @@ def _itest_binary_impl(ctx, extra_service_definition_kwargs):
 
     env = {
         var: ctx.expand_location(val, targets = ctx.attr.data)
-        for (var, val) in ctx.attr.env
+        for (var, val) in ctx.attr.env.items()
     }
 
     service = struct(
@@ -49,9 +58,15 @@ def _itest_binary_impl(ctx, extra_service_definition_kwargs):
 
     services = {service.label: service}
     for dep in ctx.attr.deps:
-        services.update(dep[ServiceGroupInfo].services)
+        services |= dep[ServiceGroupInfo].services
 
-    runfiles = ctx.runfiles(ctx.attr.data + [version_file]).merge(ctx.attr.exe.default_runfiles)
+    services, service_defs_file = _create_svcinit_actions(ctx, services)
+
+    runfiles = ctx.runfiles(ctx.attr.data + [service_defs_file, version_file])
+    runfiles = runfiles.merge_all([
+        ctx.attr.exe.default_runfiles,
+        ctx.attr._svcinit.default_runfiles,
+    ])
 
     return [
         DefaultInfo(runfiles = runfiles),
@@ -71,6 +86,7 @@ _itest_service_attrs = _itest_binary_attrs | {
 itest_service = rule(
     implementation = _itest_service_impl,
     attrs = _itest_service_attrs,
+    executable = True,
 )
 
 def _itest_task_impl(ctx):
@@ -81,10 +97,14 @@ def _itest_task_impl(ctx):
 itest_task = rule(
     implementation = _itest_task_impl,
     attrs = _itest_binary_attrs,
+    executable = True,
 )
 
 def _itest_service_group_impl(ctx):
-    services, service_defs_file = _create_svcinit_actions(ctx)
+    services, service_defs_file = _create_svcinit_actions(
+        ctx,
+        _collect_services(ctx),
+    )
 
     runfiles = ctx.runfiles(ctx.attr.data + [service_defs_file]).merge_all([
         service.default_runfiles
@@ -99,8 +119,7 @@ def _itest_service_group_impl(ctx):
 _itest_service_group_attrs = {
     "services": attr.label_list(providers = [ServiceGroupInfo]),
     "data": attr.label_list(allow_files = True),
-    "_svcinit": attr.label(default = "//cmd/svcinit", executable = True, cfg = "target"),
-}
+} | _svcinit_attr
 
 itest_service_group = rule(
     implementation = _itest_service_group_impl,
@@ -108,11 +127,7 @@ itest_service_group = rule(
     executable = True,
 )
 
-def _create_svcinit_actions(ctx, extra_svcinit_args = ""):
-    services = dict()
-    for dep in ctx.attr.services:
-        services.update(dep[ServiceGroupInfo].services)
-
+def _create_svcinit_actions(ctx, services, extra_svcinit_args = ""):
     # Avoid expanding during analysis phase.
     service_content = ctx.actions.args()
     service_content.set_param_file_format("multiline")
@@ -137,9 +152,14 @@ def _create_svcinit_actions(ctx, extra_svcinit_args = ""):
 
 def _service_test_impl(ctx):
     extra_svcinit_args = ["--svc.test-label", str(ctx.label), ctx.executable.test.short_path]
-    _, service_defs_file = _create_svcinit_actions(ctx, extra_svcinit_args = " ".join(extra_svcinit_args))
+    _, service_defs_file = _create_svcinit_actions(
+        ctx,
+        _collect_services(ctx),
+        extra_svcinit_args = " ".join(extra_svcinit_args),
+    )
 
-    runfiles = ctx.runfiles(ctx.attr.data + [service_defs_file]).merge_all([
+    runfiles = ctx.runfiles(ctx.attr.data + [service_defs_file])
+    runfiles = runfiles.merge_all([
         service.default_runfiles
         for service in ctx.attr.services
     ] + [ctx.attr._svcinit.default_runfiles, ctx.attr.test.default_runfiles])
