@@ -6,14 +6,13 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
 	"os/exec"
 	"strings"
-	"sync"
 	"text/tabwriter"
 	"time"
 
+	"rules_itest/runner"
 	"rules_itest/svclib"
 )
 
@@ -23,31 +22,8 @@ func must(err error) {
 	}
 }
 
-type ServiceCommand struct {
-	svclib.Service
-	*exec.Cmd
-	Version []byte
-
-	mu     sync.Mutex
-	runErr error
-}
-
-func (s *ServiceCommand) Start() {
-	go func() {
-		err := s.Run()
-		s.mu.Lock()
-		defer s.mu.Unlock()
-		s.runErr = err
-	}()
-}
-
-func (s *ServiceCommand) Error() error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.runErr
-}
-
 func main() {
+	fmt.Println(os.Args)
 	flags := flag.NewFlagSet("svcinit", flag.ExitOnError)
 
 	testLabel := flags.String("svc.test-label", "", "Label for the test to run, if any. If none, test will not be executed.")
@@ -105,31 +81,27 @@ func main() {
 
 	data, err := os.ReadFile(*serviceDefinitionsPath)
 	must(err)
-	fmt.Println(string(data))
 
 	var services map[string]svclib.Service
 	err = json.Unmarshal(data, &services)
 	must(err)
 
-	serviceCmds := make(map[string]*ServiceCommand)
-
-	for _, service := range services {
-		serviceCmd := startService(service)
-
-		if service.VersionFile != "" {
-			serviceCmd.Version, err = os.ReadFile(service.VersionFile)
-			must(err)
-		}
-
-		serviceCmds[service.Label] = serviceCmd
+	for k, v := range services {
+		fmt.Println(k, v)
 	}
+
+	r := runner.New(services)
+	err = r.StartAll()
+	must(err)
 
 	for {
 		var testCmd *exec.Cmd
 		var testErr error
 		if *testLabel != "" {
 			log.Printf("Executing test: %s\n", strings.Join(testArgs, " "))
-			testCmd = exec.Command(testArgs[0], testArgs[1:]...)
+			// Wrap in a shell to handle sh_test
+			testCmd = exec.Command("/bin/sh",
+				append([]string{"-c", "--"}, testArgs...)...)
 			testCmd.Stdout = os.Stdout
 			testCmd.Stderr = os.Stderr
 
@@ -151,12 +123,11 @@ func main() {
 		reportWriter.Write([]byte("Target\tUser Time\tSystem Time\n"))
 
 		if isOneShot {
-			for _, serviceCmd := range serviceCmds {
-				stopService(serviceCmd)
-				state := serviceCmd.Cmd.ProcessState
-
+			states, err := r.StopAll()
+			must(err)
+			for label, state := range states {
 				_, err = reportWriter.Write([]byte(fmt.Sprintf("%s\t%s\t%s\n",
-					serviceCmd.Service.Label, state.UserTime(), state.SystemTime())))
+					label, state.UserTime(), state.SystemTime())))
 				must(err)
 			}
 		}
@@ -183,7 +154,7 @@ func main() {
 
 		<-interactiveCh
 
-		// See which services need a restart
+		// Restart any services as needed.
 		data, err := os.ReadFile(*serviceDefinitionsPath)
 		must(err)
 		fmt.Println(string(data))
@@ -192,81 +163,7 @@ func main() {
 		err = json.Unmarshal(data, &services)
 		must(err)
 
-		for _, service := range services {
-			serviceCmd, ok := serviceCmds[service.Label]
-			if !ok {
-				serviceCmd = startService(service)
-				serviceCmds[service.Label] = serviceCmd
-			}
-
-			if service.VersionFile != "" {
-				version, err := os.ReadFile(service.VersionFile)
-				must(err)
-				if string(version) != string(serviceCmd.Version) {
-					fmt.Println(service.Label + " is stale, restarting...")
-					stopService(serviceCmd)
-					serviceCmd = startService(service)
-					serviceCmds[service.Label] = serviceCmd
-				}
-				serviceCmd.Version = version
-			}
-		}
-	}
-}
-
-func startService(service svclib.Service) *ServiceCommand {
-	cmd := exec.Command(service.Exe, service.Args...)
-	for k, v := range service.Env {
-		cmd.Env = append(cmd.Env, k+"="+v)
-	}
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	serviceCmd := &ServiceCommand{
-		Service: service,
-		Cmd:     cmd,
-	}
-
-	if service.Type == "task" {
-		err := cmd.Wait()
+		err = r.UpdateDefinitions(services)
 		must(err)
-	} else {
-		serviceCmd.Start()
-
-		if service.HttpHealthCheckAddress != "" {
-			waitUntilHealthy(serviceCmd)
-		}
-	}
-
-	return serviceCmd
-}
-
-func stopService(serviceCmd *ServiceCommand) {
-	serviceCmd.Cmd.Process.Kill()
-	serviceCmd.Cmd.Wait()
-
-	for serviceCmd.Cmd.ProcessState == nil {
-		time.Sleep(5 * time.Millisecond)
-	}
-}
-
-func waitUntilHealthy(serviceCmd *ServiceCommand) bool {
-	for {
-		if serviceCmd.Error() != nil {
-			return false
-		}
-
-		//log.Printf("Healthchecking %s at %s...\n", service.Label, service.HttpHealthCheckAddress)
-		resp, err := http.DefaultClient.Get(serviceCmd.HttpHealthCheckAddress)
-		if resp != nil {
-			defer resp.Body.Close()
-		}
-		if err == nil {
-			log.Printf("%s healthy!\n", serviceCmd.Label)
-			return true
-		}
-
-		fmt.Println(err)
-		time.Sleep(200 * time.Millisecond)
 	}
 }

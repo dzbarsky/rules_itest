@@ -1,0 +1,34 @@
+load("@rules_itest//:itest.bzl", "itest_service", "service_test")
+
+sh_binary(
+    name = "write_to_file",
+    srcs = ["write.sh"],
+)
+
+MESSAGE = "hello world"
+
+[
+    itest_service(
+        name = "write_" + str(i),
+        args = [
+            MESSAGE[i],
+        ],
+        exe = ":write_to_file",
+        deps = [":write_" + str(i - 1)] if i > 0 else [],
+    )
+    for i in range(len(MESSAGE))
+]
+
+sh_test(
+    name = "_dependencies_test",
+    srcs = ["test.sh"],
+    tags = ["manual"],
+)
+
+service_test(
+    name = "dependencies_test",
+    services = [
+        ":write_10",
+    ],
+    test = ":_dependencies_test",
+)

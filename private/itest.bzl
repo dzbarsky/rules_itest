@@ -51,7 +51,7 @@ def _itest_binary_impl(ctx, extra_service_definition_kwargs):
         exe = ctx.executable.exe.short_path,
         args = args,
         env = env,
-        deps = ctx.attr.deps,
+        deps = [str(dep.label) for dep in ctx.attr.deps],
         version_file = version_file.short_path,
         **extra_service_definition_kwargs
     )
@@ -64,6 +64,9 @@ def _itest_binary_impl(ctx, extra_service_definition_kwargs):
 
     runfiles = ctx.runfiles(ctx.attr.data + [service_defs_file, version_file])
     runfiles = runfiles.merge_all([
+        service.default_runfiles
+        for service in ctx.attr.deps
+    ] + [
         ctx.attr.exe.default_runfiles,
         ctx.attr._svcinit.default_runfiles,
     ])
@@ -151,7 +154,7 @@ def _create_svcinit_actions(ctx, services, extra_svcinit_args = ""):
     return services, service_defs_file
 
 def _service_test_impl(ctx):
-    extra_svcinit_args = ["--svc.test-label", str(ctx.label), ctx.executable.test.short_path]
+    extra_svcinit_args = ["--svc.test-label=" + str(ctx.label), ctx.executable.test.short_path]
     _, service_defs_file = _create_svcinit_actions(
         ctx,
         _collect_services(ctx),

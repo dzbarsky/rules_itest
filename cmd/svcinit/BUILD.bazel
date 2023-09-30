@@ -5,7 +5,10 @@ go_library(
     srcs = ["main.go"],
     importpath = "rules_itest/cmd/svcinit",
     visibility = ["//visibility:private"],
-    deps = ["//svclib"],
+    deps = [
+        "//runner:runner_lib",
+        "//svclib",
+    ],
 )
 
 go_binary(
