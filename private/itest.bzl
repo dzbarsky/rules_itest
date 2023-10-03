@@ -7,9 +7,9 @@ ServiceGroupInfo = provider(
     },
 )
 
-def _collect_services(ctx):
+def _collect_services(deps):
     services = {}
-    for dep in ctx.attr.services:
+    for dep in deps:
         services |= dep[ServiceGroupInfo].services
     return services
 
@@ -56,11 +56,10 @@ def _itest_binary_impl(ctx, extra_service_definition_kwargs):
         **extra_service_definition_kwargs
     )
 
-    services = {service.label: service}
-    for dep in ctx.attr.deps:
-        services |= dep[ServiceGroupInfo].services
+    services = _collect_services(ctx.attr.deps)
+    services[service.label] = service
 
-    services, service_defs_file = _create_svcinit_actions(ctx, services)
+    service_defs_file = _create_svcinit_actions(ctx, services)
 
     runfiles = ctx.runfiles(ctx.attr.data + [service_defs_file, version_file])
     runfiles = runfiles.merge_all([
@@ -104,10 +103,8 @@ itest_task = rule(
 )
 
 def _itest_service_group_impl(ctx):
-    services, service_defs_file = _create_svcinit_actions(
-        ctx,
-        _collect_services(ctx),
-    )
+    services = _collect_services(ctx.attr.services)
+    service_defs_file = _create_svcinit_actions(ctx, services)
 
     runfiles = ctx.runfiles(ctx.attr.data + [service_defs_file]).merge_all([
         service.default_runfiles
@@ -151,13 +148,13 @@ def _create_svcinit_actions(ctx, services, extra_svcinit_args = ""):
         ),
     )
 
-    return services, service_defs_file
+    return service_defs_file
 
 def _service_test_impl(ctx):
     extra_svcinit_args = ["--svc.test-label=" + str(ctx.label), ctx.executable.test.short_path]
-    _, service_defs_file = _create_svcinit_actions(
+    service_defs_file = _create_svcinit_actions(
         ctx,
-        _collect_services(ctx),
+        _collect_services(ctx.attr.services),
         extra_svcinit_args = " ".join(extra_svcinit_args),
     )
 
