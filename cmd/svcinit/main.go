@@ -28,6 +28,8 @@ func main() {
 
 	testLabel := flags.String("svc.test-label", "", "Label for the test to run, if any. If none, test will not be executed.")
 	serviceDefinitionsPath := flags.String("svc.definitions-path", "", "File defining which services to run")
+	allowSvcctl := flags.Bool("svc.allow-svcctl", false, "If true, spawns a server to handle svcctl commands")
+	_ = allowSvcctl
 
 	shouldHotReload := os.Getenv("IBAZEL_NOTIFY_CHANGES") == "y"
 
@@ -93,6 +95,10 @@ func main() {
 	r := runner.New(services)
 	err = r.StartAll()
 	must(err)
+
+	/*if *allowSvcctl {
+		addr := net.Listen(network, address)
+	}*/
 
 	for {
 		var testCmd *exec.Cmd

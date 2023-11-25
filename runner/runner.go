@@ -1,9 +1,11 @@
 package runner
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
+	"reflect"
 	"sync"
 	"time"
 
@@ -25,10 +27,7 @@ func New(services map[string]svclib.Service) *runner {
 
 func (r *runner) StartAll() error {
 	for _, service := range r.services {
-		serviceCmd, err := newServiceCmd(service)
-		if err != nil {
-			return err
-		}
+		serviceCmd := newServiceCmd(service)
 
 		if service.VersionFile != "" {
 			version, err := os.ReadFile(service.VersionFile)
@@ -56,41 +55,94 @@ func (r *runner) StopAll() (map[string]*os.ProcessState, error) {
 	return states, nil
 }
 
-func (r *runner) UpdateDefinitions(services map[string]svclib.Service) error {
-	for _, service := range services {
-		serviceCmd, ok := r.serviceCmds[service.Label]
+type updateActions struct {
+	toStopLabels  []string
+	toStartLabels []string
+}
+
+func computeUpdateActions(
+	currentServices map[string]svclib.Service,
+	currentVersionProvider func(label string) []byte,
+	newServices map[string]svclib.Service,
+	newVersionProvider func(label string) ([]byte, error),
+) (
+	updateActions, error,
+) {
+	actions := updateActions{}
+
+	// Check if existing services need a restart or a shutdown.
+	for label, service := range currentServices {
+		newService, ok := newServices[label]
 		if !ok {
-			var err error
-			serviceCmd, err = newServiceCmd(service)
-			if err != nil {
-				return err
-			}
-			r.serviceCmds[service.Label] = serviceCmd
+			fmt.Println(label + "has been reoved, stopping")
+			actions.toStopLabels = append(actions.toStopLabels, label)
+			continue
+		}
+
+		// TODO(zbarsky): probably not needed in case service deps are changing
+		if !reflect.DeepEqual(service, newService) {
+			fmt.Println(label + "definition has changed, restarting...")
+			actions.toStopLabels = append(actions.toStopLabels, label)
+			actions.toStartLabels = append(actions.toStartLabels, label)
+			continue
 		}
 
 		if service.VersionFile != "" {
-			version, err := os.ReadFile(service.VersionFile)
+			currentVersion := currentVersionProvider(label)
+			newVersion, err := newVersionProvider(label)
 			if err != nil {
-				return err
+				return actions, err
 			}
-			if string(version) != string(serviceCmd.Version()) {
-				fmt.Println(service.Label + " is stale, restarting...")
-				stopService(serviceCmd)
-				serviceCmd, err = newServiceCmd(service)
-				if err != nil {
-					return err
-				}
-				r.serviceCmds[service.Label] = serviceCmd
+
+			if !bytes.Equal(currentVersion, newVersion) {
+				fmt.Println(label + "code has changed, restarting...")
+				actions.toStopLabels = append(actions.toStopLabels, label)
+				actions.toStartLabels = append(actions.toStartLabels, label)
 			}
-			serviceCmd.SetVersion(version)
 		}
 	}
 
+	// Handle new services
+	for label := range newServices {
+		if _, ok := currentServices[label]; !ok {
+			actions.toStartLabels = append(actions.toStartLabels, label)
+		}
+	}
+
+	return actions, nil
+}
+
+func (r *runner) UpdateDefinitions(services map[string]svclib.Service) error {
+	updateActions, err := computeUpdateActions(
+		r.services,
+		func(label string) []byte {
+			return r.serviceCmds[label].Version()
+		},
+		services,
+		func(label string) ([]byte, error) {
+			return os.ReadFile(services[label].VersionFile)
+		},
+	)
+	if err != nil {
+		return err
+	}
+
+	for _, label := range updateActions.toStopLabels {
+		serviceCmd := r.serviceCmds[label]
+		stopService(serviceCmd)
+		delete(r.serviceCmds, label)
+	}
+
+	for _, label := range updateActions.toStartLabels {
+		r.serviceCmds[label] = newServiceCmd(services[label])
+	}
+
+	r.services = services
 	starter := newTopologicalStarter(r.serviceCmds)
 	return starter.Run()
 }
 
-func newServiceCmd(service svclib.Service) (*ServiceCommand, error) {
+func newServiceCmd(service svclib.Service) *ServiceCommand {
 	cmd := exec.Command(service.Exe, service.Args...)
 	for k, v := range service.Env {
 		cmd.Env = append(cmd.Env, k+"="+v)
@@ -103,7 +155,7 @@ func newServiceCmd(service svclib.Service) (*ServiceCommand, error) {
 		Cmd:     cmd,
 
 		startErrFn: sync.OnceValue(cmd.Start),
-	}, nil
+	}
 }
 
 func stopService(serviceCmd *ServiceCommand) {
