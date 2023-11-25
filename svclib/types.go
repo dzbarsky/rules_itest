@@ -1,6 +1,7 @@
 package svclib
 
-type Service struct {
+// Created by Starlark
+type ServiceSpec struct {
 	// Type can be "service" or "task".
 
 	Type                   string            `json:"type"`
@@ -11,4 +12,10 @@ type Service struct {
 	HttpHealthCheckAddress string            `json:"http_health_check_address"`
 	VersionFile            string            `json:"version_file"`
 	Deps                   []string          `json:"deps"`
+}
+
+// Our internal representation.
+type VersionedServiceSpec struct {
+	ServiceSpec
+	Version string
 }

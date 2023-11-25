@@ -7,49 +7,49 @@ import (
 )
 
 type startTask struct {
-	svcCommand  *ServiceCommand
-	svcCommands map[string]*ServiceCommand
+	serviceInstance  *ServiceInstance
+	serviceInstances map[string]*ServiceInstance
 }
 
 func (st *startTask) Key() string {
-	return st.svcCommand.Label
+	return st.serviceInstance.Label
 }
 
 func (st *startTask) Run() error {
-	fmt.Println("starting " + st.svcCommand.Label)
-	startErr := st.svcCommand.Start()
+	fmt.Println("starting " + st.serviceInstance.Label)
+	startErr := st.serviceInstance.Start()
 	if startErr != nil {
 		return startErr
 	}
-	fmt.Println("waiting for " + st.svcCommand.Label)
-	return st.svcCommand.WaitUntilHealthy()
+	fmt.Println("waiting for " + st.serviceInstance.Label)
+	return st.serviceInstance.WaitUntilHealthy()
 }
 
 func (st *startTask) Dependents() []topological.Task {
-	allTasks := make([]topological.Task, 0, len(st.svcCommand.Deps))
-	for _, label := range st.svcCommand.Deps {
+	allTasks := make([]topological.Task, 0, len(st.serviceInstance.Deps))
+	for _, label := range st.serviceInstance.Deps {
 		allTasks = append(allTasks, &startTask{
-			svcCommand:  st.svcCommands[label],
-			svcCommands: st.svcCommands,
+			serviceInstance:  st.serviceInstances[label],
+			serviceInstances: st.serviceInstances,
 		})
 	}
 	return allTasks
 }
 
 func (st *startTask) Duration() time.Duration {
-	return st.svcCommand.StartDuration()
+	return st.serviceInstance.StartDuration()
 }
 
 func (st *startTask) StartTime() time.Time {
-	return st.svcCommand.StartTime()
+	return st.serviceInstance.StartTime()
 }
 
-func newTopologicalStarter(svcCommands map[string]*ServiceCommand) topological.Runner {
-	allTasks := make([]topological.Task, 0, len(svcCommands))
-	for _, svcCommand := range svcCommands {
+func newTopologicalStarter(serviceInstances map[string]*ServiceInstance) topological.Runner {
+	allTasks := make([]topological.Task, 0, len(serviceInstances))
+	for _, serviceInstance := range serviceInstances {
 		allTasks = append(allTasks, &startTask{
-			svcCommand:  svcCommand,
-			svcCommands: svcCommands,
+			serviceInstance:  serviceInstance,
+			serviceInstances: serviceInstances,
 		})
 	}
 	return topological.NewRunner(allTasks)

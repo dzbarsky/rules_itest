@@ -1,7 +1,6 @@
 package runner
 
 import (
-	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
@@ -12,44 +11,33 @@ import (
 	"rules_itest/svclib"
 )
 
-type runner struct {
-	services map[string]svclib.Service
+type ServiceSpecs = map[string]svclib.VersionedServiceSpec
 
-	serviceCmds map[string]*ServiceCommand
+type runner struct {
+	serviceSpecs ServiceSpecs
+
+	serviceInstances map[string]*ServiceInstance
 }
 
-func New(services map[string]svclib.Service) *runner {
-	return &runner{
-		services:    services,
-		serviceCmds: make(map[string]*ServiceCommand),
+func New(serviceSpecs ServiceSpecs) *runner {
+	r := &runner{
+		serviceInstances: map[string]*ServiceInstance{},
 	}
+	r.UpdateSpecs(serviceSpecs)
+	return r
 }
 
 func (r *runner) StartAll() error {
-	for _, service := range r.services {
-		serviceCmd := newServiceCmd(service)
-
-		if service.VersionFile != "" {
-			version, err := os.ReadFile(service.VersionFile)
-			if err != nil {
-				return err
-			}
-			serviceCmd.SetVersion(version)
-		}
-
-		r.serviceCmds[service.Label] = serviceCmd
-	}
-
-	starter := newTopologicalStarter(r.serviceCmds)
+	starter := newTopologicalStarter(r.serviceInstances)
 	return starter.Run()
 }
 
 func (r *runner) StopAll() (map[string]*os.ProcessState, error) {
 	states := make(map[string]*os.ProcessState)
 
-	for _, serviceCmd := range r.serviceCmds {
-		stopService(serviceCmd)
-		states[serviceCmd.Label] = serviceCmd.Cmd.ProcessState
+	for _, serviceInstance := range r.serviceInstances {
+		stopInstance(serviceInstance)
+		states[serviceInstance.Label] = serviceInstance.Cmd.ProcessState
 	}
 
 	return states, nil
@@ -60,45 +48,24 @@ type updateActions struct {
 	toStartLabels []string
 }
 
-func computeUpdateActions(
-	currentServices map[string]svclib.Service,
-	currentVersionProvider func(label string) []byte,
-	newServices map[string]svclib.Service,
-	newVersionProvider func(label string) ([]byte, error),
-) (
-	updateActions, error,
-) {
+func computeUpdateActions(currentServices, newServices ServiceSpecs) updateActions {
 	actions := updateActions{}
 
 	// Check if existing services need a restart or a shutdown.
 	for label, service := range currentServices {
 		newService, ok := newServices[label]
 		if !ok {
-			fmt.Println(label + "has been reoved, stopping")
+			fmt.Println(label + " has been removed, stopping")
 			actions.toStopLabels = append(actions.toStopLabels, label)
 			continue
 		}
 
 		// TODO(zbarsky): probably not needed in case service deps are changing
 		if !reflect.DeepEqual(service, newService) {
-			fmt.Println(label + "definition has changed, restarting...")
+			fmt.Println(label + " definition or code has changed, restarting...")
 			actions.toStopLabels = append(actions.toStopLabels, label)
 			actions.toStartLabels = append(actions.toStartLabels, label)
 			continue
-		}
-
-		if service.VersionFile != "" {
-			currentVersion := currentVersionProvider(label)
-			newVersion, err := newVersionProvider(label)
-			if err != nil {
-				return actions, err
-			}
-
-			if !bytes.Equal(currentVersion, newVersion) {
-				fmt.Println(label + "code has changed, restarting...")
-				actions.toStopLabels = append(actions.toStopLabels, label)
-				actions.toStartLabels = append(actions.toStartLabels, label)
-			}
 		}
 	}
 
@@ -109,60 +76,50 @@ func computeUpdateActions(
 		}
 	}
 
-	return actions, nil
+	return actions
 }
 
-func (r *runner) UpdateDefinitions(services map[string]svclib.Service) error {
-	updateActions, err := computeUpdateActions(
-		r.services,
-		func(label string) []byte {
-			return r.serviceCmds[label].Version()
-		},
-		services,
-		func(label string) ([]byte, error) {
-			return os.ReadFile(services[label].VersionFile)
-		},
-	)
-	if err != nil {
-		return err
-	}
+func (r *runner) UpdateSpecs(serviceSpecs ServiceSpecs) {
+	updateActions := computeUpdateActions(r.serviceSpecs, serviceSpecs)
 
 	for _, label := range updateActions.toStopLabels {
-		serviceCmd := r.serviceCmds[label]
-		stopService(serviceCmd)
-		delete(r.serviceCmds, label)
+		serviceInstance := r.serviceInstances[label]
+		stopInstance(serviceInstance)
+		delete(r.serviceInstances, label)
 	}
 
 	for _, label := range updateActions.toStartLabels {
-		r.serviceCmds[label] = newServiceCmd(services[label])
+		r.serviceInstances[label] = prepareServiceInstance(serviceSpecs[label].ServiceSpec)
 	}
-
-	r.services = services
-	starter := newTopologicalStarter(r.serviceCmds)
-	return starter.Run()
+	r.serviceSpecs = serviceSpecs
 }
 
-func newServiceCmd(service svclib.Service) *ServiceCommand {
-	cmd := exec.Command(service.Exe, service.Args...)
-	for k, v := range service.Env {
+func (r *runner) UpdateSpecsAndRestart(serviceSpecs ServiceSpecs) error {
+	r.UpdateSpecs(serviceSpecs)
+	return r.StartAll()
+}
+
+func prepareServiceInstance(serviceSpec svclib.ServiceSpec) *ServiceInstance {
+	cmd := exec.Command(serviceSpec.Exe, serviceSpec.Args...)
+	for k, v := range serviceSpec.Env {
 		cmd.Env = append(cmd.Env, k+"="+v)
 	}
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	return &ServiceCommand{
-		Service: service,
-		Cmd:     cmd,
+	return &ServiceInstance{
+		ServiceSpec: serviceSpec,
+		Cmd:         cmd,
 
 		startErrFn: sync.OnceValue(cmd.Start),
 	}
 }
 
-func stopService(serviceCmd *ServiceCommand) {
-	serviceCmd.Cmd.Process.Kill()
-	serviceCmd.Cmd.Wait()
+func stopInstance(serviceInstance *ServiceInstance) {
+	serviceInstance.Cmd.Process.Kill()
+	serviceInstance.Cmd.Wait()
 
-	for serviceCmd.Cmd.ProcessState == nil {
+	for serviceInstance.Cmd.ProcessState == nil {
 		time.Sleep(5 * time.Millisecond)
 	}
 }

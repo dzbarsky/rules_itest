@@ -24,7 +24,7 @@ _itest_binary_attrs = {
     "deps": attr.label_list(providers = [ServiceGroupInfo]),
 } | _svcinit_attr
 
-def _itest_binary_impl(ctx, extra_service_definition_kwargs):
+def _itest_binary_impl(ctx, extra_service_spec_kwargs):
     version_file = ctx.actions.declare_file(ctx.label.name + ".version")
 
     version_file_deps = ctx.files.data + ctx.files.exe
@@ -53,15 +53,15 @@ def _itest_binary_impl(ctx, extra_service_definition_kwargs):
         env = env,
         deps = [str(dep.label) for dep in ctx.attr.deps],
         version_file = version_file.short_path,
-        **extra_service_definition_kwargs
+        **extra_service_spec_kwargs
     )
 
     services = _collect_services(ctx.attr.deps)
     services[service.label] = service
 
-    service_defs_file = _create_svcinit_actions(ctx, services)
+    service_specs_file = _create_svcinit_actions(ctx, services)
 
-    runfiles = ctx.runfiles(ctx.attr.data + [service_defs_file, version_file])
+    runfiles = ctx.runfiles(ctx.attr.data + [service_specs_file, version_file])
     runfiles = runfiles.merge_all([
         service.default_runfiles
         for service in ctx.attr.deps
@@ -104,9 +104,9 @@ itest_task = rule(
 
 def _itest_service_group_impl(ctx):
     services = _collect_services(ctx.attr.services)
-    service_defs_file = _create_svcinit_actions(ctx, services)
+    service_specs_file = _create_svcinit_actions(ctx, services)
 
-    runfiles = ctx.runfiles(ctx.attr.data + [service_defs_file]).merge_all([
+    runfiles = ctx.runfiles(ctx.attr.data + [service_specs_file]).merge_all([
         service.default_runfiles
         for service in ctx.attr.services
     ] + [ctx.attr._svcinit.default_runfiles])
@@ -133,32 +133,32 @@ def _create_svcinit_actions(ctx, services, extra_svcinit_args = ""):
     service_content.set_param_file_format("multiline")
     service_content.add_all([services], map_each = json.encode)
 
-    service_defs_file = ctx.actions.declare_file(ctx.label.name + ".service_defs.json")
+    service_specs_file = ctx.actions.declare_file(ctx.label.name + ".service_specs.json")
     ctx.actions.write(
-        output = service_defs_file,
+        output = service_specs_file,
         content = service_content,
     )
 
     ctx.actions.write(
         output = ctx.outputs.executable,
-        content = 'exec {svcinit_path} -svc.definitions-path={service_definitions} {extra_svcinit_args} "$@"'.format(
+        content = 'exec {svcinit_path} -svc.specs-path={service_specs_path} {extra_svcinit_args} "$@"'.format(
             svcinit_path = ctx.executable._svcinit.short_path,
-            service_definitions = service_defs_file.short_path,
+            service_specs_path = service_specs_file.short_path,
             extra_svcinit_args = extra_svcinit_args,
         ),
     )
 
-    return service_defs_file
+    return service_specs_file
 
 def _service_test_impl(ctx):
     extra_svcinit_args = ["--svc.test-label=" + str(ctx.label), ctx.executable.test.short_path]
-    service_defs_file = _create_svcinit_actions(
+    service_specs_file = _create_svcinit_actions(
         ctx,
         _collect_services(ctx.attr.services),
         extra_svcinit_args = " ".join(extra_svcinit_args),
     )
 
-    runfiles = ctx.runfiles(ctx.attr.data + [service_defs_file])
+    runfiles = ctx.runfiles(ctx.attr.data + [service_specs_file])
     runfiles = runfiles.merge_all([
         service.default_runfiles
         for service in ctx.attr.services

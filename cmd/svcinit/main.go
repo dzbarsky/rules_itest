@@ -27,7 +27,7 @@ func main() {
 	flags := flag.NewFlagSet("svcinit", flag.ExitOnError)
 
 	testLabel := flags.String("svc.test-label", "", "Label for the test to run, if any. If none, test will not be executed.")
-	serviceDefinitionsPath := flags.String("svc.definitions-path", "", "File defining which services to run")
+	serviceSpecsPath := flags.String("svc.specs-path", "", "File defining which services to run")
 	allowSvcctl := flags.Bool("svc.allow-svcctl", false, "If true, spawns a server to handle svcctl commands")
 	_ = allowSvcctl
 
@@ -81,18 +81,14 @@ func main() {
 
 	isOneShot := !shouldHotReload && *testLabel != ""
 
-	data, err := os.ReadFile(*serviceDefinitionsPath)
+	serviceSpecs, err := readVersionedServiceSpecs(*serviceSpecsPath)
 	must(err)
 
-	var services map[string]svclib.Service
-	err = json.Unmarshal(data, &services)
-	must(err)
-
-	for k, v := range services {
+	for k, v := range serviceSpecs {
 		fmt.Println(k, v)
 	}
 
-	r := runner.New(services)
+	r := runner.New(serviceSpecs)
 	err = r.StartAll()
 	must(err)
 
@@ -161,15 +157,37 @@ func main() {
 		<-interactiveCh
 
 		// Restart any services as needed.
-		data, err := os.ReadFile(*serviceDefinitionsPath)
-		must(err)
-		fmt.Println(string(data))
-
-		var services map[string]svclib.Service
-		err = json.Unmarshal(data, &services)
+		serviceSpecs, err := readVersionedServiceSpecs(*serviceSpecsPath)
 		must(err)
 
-		err = r.UpdateDefinitions(services)
+		err = r.UpdateSpecsAndRestart(serviceSpecs)
 		must(err)
 	}
+}
+
+func readVersionedServiceSpecs(
+	path string,
+) (
+	map[string]svclib.VersionedServiceSpec, error,
+) {
+	data, err := os.ReadFile(path)
+	must(err)
+	fmt.Println(string(data))
+
+	var serviceSpecs map[string]svclib.ServiceSpec
+	err = json.Unmarshal(data, &serviceSpecs)
+	must(err)
+
+	versionedServiceSpecs := make(map[string]svclib.VersionedServiceSpec, len(serviceSpecs))
+	for label, serviceSpec := range serviceSpecs {
+		version, err := os.ReadFile(serviceSpec.VersionFile)
+		if err != nil {
+			return nil, err
+		}
+		versionedServiceSpecs[label] = svclib.VersionedServiceSpec{
+			ServiceSpec: serviceSpec,
+			Version:     string(version),
+		}
+	}
+	return versionedServiceSpecs, nil
 }

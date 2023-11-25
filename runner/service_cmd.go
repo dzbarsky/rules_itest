@@ -11,8 +11,8 @@ import (
 	"rules_itest/svclib"
 )
 
-type ServiceCommand struct {
-	svclib.Service
+type ServiceInstance struct {
+	svclib.ServiceSpec
 	*exec.Cmd
 
 	startTime     time.Time
@@ -20,12 +20,11 @@ type ServiceCommand struct {
 
 	startErrFn func() error
 
-	mu      sync.Mutex
-	runErr  error
-	version []byte
+	mu     sync.Mutex
+	runErr error
 }
 
-func (s *ServiceCommand) Start() error {
+func (s *ServiceInstance) Start() error {
 	s.startTime = time.Now()
 	return s.startErrFn()
 	/*go func() {
@@ -36,7 +35,7 @@ func (s *ServiceCommand) Start() error {
 	}()*/
 }
 
-func (s *ServiceCommand) WaitUntilHealthy() error {
+func (s *ServiceInstance) WaitUntilHealthy() error {
 	defer func() {
 		s.mu.Lock()
 		defer s.mu.Unlock()
@@ -68,32 +67,20 @@ func (s *ServiceCommand) WaitUntilHealthy() error {
 	}
 }
 
-func (s *ServiceCommand) StartTime() time.Time {
+func (s *ServiceInstance) StartTime() time.Time {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.startTime
 }
 
-func (s *ServiceCommand) StartDuration() time.Duration {
+func (s *ServiceInstance) StartDuration() time.Duration {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.startDuration
 }
 
-func (s *ServiceCommand) Error() error {
+func (s *ServiceInstance) Error() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.runErr
-}
-
-func (s *ServiceCommand) Version() []byte {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.version
-}
-
-func (s *ServiceCommand) SetVersion(version []byte) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.version = version
 }
