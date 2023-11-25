@@ -2,6 +2,7 @@ package topological
 
 import (
 	"runtime"
+	"slices"
 	"sync"
 	"time"
 )
@@ -29,14 +30,14 @@ type runner struct {
 	// the CV's lock protects below values while the pool is running
 	tasks      []Task
 	tasksByKey map[string]Task
-	completed  map[string]bool
+	completed  map[string]struct{}
 	die        bool
 	err        error
 }
 
 func NewRunner(tasks []Task) Runner {
 	tasks = uniqueDeps(tasks)
-	tasksByKey := map[string]Task{}
+	tasksByKey := make(map[string]Task, len(tasks))
 	for _, task := range tasks {
 		tasksByKey[task.Key()] = task
 	}
@@ -47,7 +48,7 @@ func NewRunner(tasks []Task) Runner {
 		costs:      make(map[string]time.Duration),
 		tasks:      tasks,
 		tasksByKey: tasksByKey,
-		completed:  make(map[string]bool),
+		completed:  make(map[string]struct{}),
 	}
 }
 
@@ -112,21 +113,16 @@ func NewReversedRunner(tasks []Task) Runner {
 }
 
 func uniqueDeps(tasks []Task) []Task {
-	seen := make(map[string]bool)
-	deps := make([]Task, 0)
-	queue := make([]Task, 0)
-	for _, task := range tasks {
-		queue = append(queue, task)
-	}
+	seen := make(map[string]struct{})
+	var deps []Task
+	queue := slices.Clone(tasks)
 
 	for len(queue) > 0 {
 		task := queue[0]
 		queue = queue[1:]
-		if !seen[task.Key()] {
-			seen[task.Key()] = true
-			for _, dep := range task.Dependents() {
-				queue = append(queue, dep)
-			}
+		if _, ok := seen[task.Key()]; !ok {
+			seen[task.Key()] = struct{}{}
+			queue = append(queue, task.Dependents()...)
 			deps = append(deps, task)
 		}
 	}
@@ -137,7 +133,7 @@ func (ts *runner) ready(task Task) bool {
 	// A task is ready if all its dependencies are marked completed
 	// Must be called while holding cv.L.
 	for _, dep := range task.Dependents() {
-		if !ts.completed[dep.Key()] {
+		if _, ok := ts.completed[dep.Key()]; !ok {
 			return false
 		}
 	}
@@ -172,7 +168,7 @@ func (ts *runner) setErr(err error) {
 
 func (ts *runner) markDone(task Task) {
 	// Mark this task as done and let other workers know.
-	ts.completed[task.Key()] = true
+	ts.completed[task.Key()] = struct{}{}
 	// We do not have a reverse dependency map so just wake all the workers. It
 	// would only give an upper bound on the number of workers to wake anyway.
 	ts.cv.Broadcast()
@@ -212,9 +208,6 @@ func (ts *runner) Run() error {
 }
 
 func (ts *runner) highestCost(tasks []Task) Task {
-	if len(tasks) == 0 {
-		return nil
-	}
 	var highest Task
 	cost := 0 * time.Second
 	for _, task := range tasks {
