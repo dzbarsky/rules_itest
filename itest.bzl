@@ -8,8 +8,14 @@ load(
     _service_test = "service_test",
 )
 
-def itest_service(**kwargs):
-    _itest_service(**kwargs)
+def itest_service(name, **kwargs):
+    _itest_service(name = name, **kwargs)
+
+    service_test(
+        name = name + "_hygiene_test",
+        services = [name],
+        test = "@rules_itest//:exit0",
+    )
 
 def itest_service_group(**kwargs):
     _itest_service_group(**kwargs)

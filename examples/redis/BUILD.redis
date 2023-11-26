@@ -1,0 +1,99 @@
+cc_library(
+    name = "linenoise",
+    srcs = glob([
+        "deps/linenoise/*.c",
+        "deps/linenoise/*.h",
+    ]),
+    includes = ["deps/linenoise"],
+)
+
+cc_library(
+    name = "hiredis",
+    srcs = glob(
+        [
+            "deps/hiredis/*.h",
+            "deps/hiredis/*.c",
+        ],
+        exclude = [
+            "deps/hiredis/ssl.*",
+        ],
+    ),
+    copts = ["-Wno-unused-function"],
+    includes = ["deps/hiredis"],
+    textual_hdrs = ["deps/hiredis/dict.c"],
+)
+
+cc_library(
+    name = "lua",
+    srcs = glob(
+        ["deps/lua/src/*.*"],
+        exclude = [
+            "deps/lua/src/lua.c",
+            "deps/lua/src/luac.c",
+        ],
+    ) + ["src/solarisfixes.h"],
+    copts = ["-Wno-deprecated-declarations"],
+    includes = ["deps/lua/src"],
+)
+
+sh_binary(
+    name = "mkreleasehdr",
+    srcs = ["src/mkreleasehdr.sh"],
+)
+
+genrule(
+    name = "generate_release_header",
+    outs = ["release.h"],
+    cmd = "$(location mkreleasehdr) && mv release.h $@",
+    tools = [":mkreleasehdr"],
+)
+
+cc_library(
+    name = "redis_lib",
+    srcs = glob(
+        [
+            "src/*.c",
+            "src/*.h",
+        ],
+        exclude = [
+            "src/ae_*",
+            "src/cli_common.c",
+            "src/redis-benchmark.c",
+            "src/redis-cli.c",
+        ],
+    ) + ["release.h"],
+    textual_hdrs = select({
+        "@platforms//os:linux": ["src/ae_epoll.c"],
+        "@platforms//os:osx": ["src/ae_kqueue.c", "src/ae_select.c"],
+    }),
+    deps = [
+        ":hiredis",
+        ":lua",
+    ],
+)
+
+cc_binary(
+    name = "redis",
+    linkopts = select({
+        "@platforms//os:linux": [
+            "-ldl",
+            "-lpthread",
+        ],
+        "@platforms//os:osx": [],
+    }),
+    visibility = ["//visibility:public"],
+    deps = [":redis_lib"],
+)
+
+cc_binary(
+    name = "redis_cli",
+    srcs = [
+        "src/cli_common.c",
+        "src/redis-cli.c",
+    ] + glob(["src/*.h"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":linenoise",
+        ":redis_lib",
+    ],
+)

@@ -24,7 +24,7 @@ _itest_binary_attrs = {
     "deps": attr.label_list(providers = [ServiceGroupInfo]),
 } | _svcinit_attr
 
-def _itest_binary_impl(ctx, extra_service_spec_kwargs):
+def _itest_binary_impl(ctx, extra_service_spec_kwargs, extra_runfiles = []):
     version_file = ctx.actions.declare_file(ctx.label.name + ".version")
 
     version_file_deps = ctx.files.data + ctx.files.exe
@@ -68,7 +68,7 @@ def _itest_binary_impl(ctx, extra_service_spec_kwargs):
     ] + [
         ctx.attr.exe.default_runfiles,
         ctx.attr._svcinit.default_runfiles,
-    ])
+    ] + extra_runfiles)
 
     return [
         DefaultInfo(runfiles = runfiles),
@@ -76,13 +76,23 @@ def _itest_binary_impl(ctx, extra_service_spec_kwargs):
     ]
 
 def _itest_service_impl(ctx):
-    return _itest_binary_impl(ctx, {
+    extra_service_spec_kwargs = {
         "type": "service",
         "http_health_check_address": ctx.attr.http_health_check_address,
-    })
+        "autodetect_port": ctx.attr.autodetect_port,
+    }
+    extra_runfiles = []
+
+    if ctx.attr.health_check:
+        extra_service_spec_kwargs["health_check"] = ctx.executable.health_check.short_path
+        extra_runfiles.append(ctx.attr.health_check.default_runfiles)
+
+    return _itest_binary_impl(ctx, extra_service_spec_kwargs, extra_runfiles)
 
 _itest_service_attrs = _itest_binary_attrs | {
     "http_health_check_address": attr.string(),
+    "autodetect_port": attr.bool(),
+    "health_check": attr.label(cfg = "target", mandatory = False, executable = True),
 }
 
 itest_service = rule(

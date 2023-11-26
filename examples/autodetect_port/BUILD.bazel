@@ -3,24 +3,25 @@ load("@rules_itest//:itest.bzl", "itest_service", "service_test")
 
 itest_service(
     name = "service",
+    autodetect_port = True,
     exe = "//go_service",
     http_health_check_address = "http://localhost:$PORT",
 )
 
 go_test(
-    name = "_auto_assign_port_test",
-    srcs = ["auto_assign_port_test.go"],
+    name = "_autodetect_port_test",
+    srcs = ["autodetect_port_test.go"],
     tags = ["manual"],
 )
 
 # These can all run in parallel!
 [
     service_test(
-        name = "auto_assign_port_test_%s" % i,
+        name = "autodetect_port_test_%s" % i,
         services = [
             ":service",
         ],
-        test = ":_auto_assign_port_test",
+        test = ":_autodetect_port_test",
     )
     for i in range(10)
 ]

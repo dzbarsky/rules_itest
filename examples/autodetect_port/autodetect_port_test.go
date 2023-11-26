@@ -10,7 +10,7 @@ import (
 
 func TestServiceHealthcheck(t *testing.T) {
 	port, err := os.ReadFile(
-		filepath.Join(os.Getenv("TEST_TMPDIR"), "@@__auto_assign_port:service"))
+		filepath.Join(os.Getenv("TEST_TMPDIR"), "@@__autodetect_port:service"))
 	if err != nil {
 		t.Fatal(err)
 	}

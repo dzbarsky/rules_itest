@@ -89,7 +89,7 @@ func (r *runner) UpdateSpecs(serviceSpecs ServiceSpecs) {
 	}
 
 	for _, label := range updateActions.toStartLabels {
-		r.serviceInstances[label] = prepareServiceInstance(serviceSpecs[label].ServiceSpec)
+		r.serviceInstances[label] = prepareServiceInstance(serviceSpecs[label])
 	}
 	r.serviceSpecs = serviceSpecs
 }
@@ -99,7 +99,7 @@ func (r *runner) UpdateSpecsAndRestart(serviceSpecs ServiceSpecs) error {
 	return r.StartAll()
 }
 
-func prepareServiceInstance(serviceSpec svclib.ServiceSpec) *ServiceInstance {
+func prepareServiceInstance(serviceSpec svclib.VersionedServiceSpec) *ServiceInstance {
 	cmd := exec.Command(serviceSpec.Exe, serviceSpec.Args...)
 	for k, v := range serviceSpec.Env {
 		cmd.Env = append(cmd.Env, k+"="+v)
@@ -108,7 +108,7 @@ func prepareServiceInstance(serviceSpec svclib.ServiceSpec) *ServiceInstance {
 	cmd.Stderr = os.Stderr
 
 	return &ServiceInstance{
-		ServiceSpec: serviceSpec,
+		ServiceSpec: serviceSpec.ServiceSpec,
 		Cmd:         cmd,
 
 		startErrFn: sync.OnceValue(cmd.Start),

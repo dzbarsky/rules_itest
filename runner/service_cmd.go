@@ -51,38 +51,52 @@ func (s *ServiceInstance) WaitUntilHealthy() error {
 			return err
 		}
 
-		output, err := exec.Command("lsof",
-			// Network connections
-			"-i",
-			// AND
-			"-a",
-			// Owned by our pid
-			"-p", strconv.Itoa(s.Process.Pid),
-			"-F", "n").CombinedOutput()
-		if err != nil {
-			time.Sleep(200 * time.Millisecond)
-			continue
+		if s.AutodetectPort {
+			output, err := exec.Command("lsof",
+				// Network connections
+				"-i",
+				// AND
+				"-a",
+				// Owned by our pid
+				"-p", strconv.Itoa(s.Process.Pid),
+				"-F", "n").CombinedOutput()
+			if err != nil {
+				fmt.Println("No port yet; waiting...")
+				time.Sleep(200 * time.Millisecond)
+				continue
+			}
+
+			// Output looks like so:
+			//
+			// p24051
+			// f3
+			// nlocalhost:52263
+			parts := strings.Split(string(output), ":")
+			port = parts[1]
+			// Trim trailing \n
+			port = port[:len(port)-1]
 		}
 
-		// Output looks like so:
-		//
-		// p24051
-		// f3
-		// nlocalhost:52263
-		parts := strings.Split(string(output), ":")
-		port = parts[1]
-		// Trim trailing \n
-		port = port[:len(port)-1]
+		log.Printf("Healthchecking %s\n", s.Label)
 
-		// It's OK to mutate our spec since we have made a copy of it.
-		s.HttpHealthCheckAddress = strings.ReplaceAll(
-			s.HttpHealthCheckAddress, "$PORT", port)
+		if s.HttpHealthCheckAddress != "" {
+			// It's OK to mutate our spec since we have made a copy of it.
+			s.HttpHealthCheckAddress = strings.ReplaceAll(
+				s.HttpHealthCheckAddress, "$PORT", port)
 
-		//log.Printf("Healthchecking %s at %s...\n", service.Label, service.HttpHealthCheckAddress)
-		resp, err := http.DefaultClient.Get(s.HttpHealthCheckAddress)
-		if resp != nil {
-			defer resp.Body.Close()
+			var resp *http.Response
+			resp, err = http.DefaultClient.Get(s.HttpHealthCheckAddress)
+			if resp != nil {
+				defer resp.Body.Close()
+			}
+
+		} else if s.HealthCheck != "" {
+			cmd := exec.Command(s.HealthCheck)
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			err = cmd.Run()
 		}
+
 		if err == nil {
 			log.Printf("%s healthy!\n", s.Label)
 			break

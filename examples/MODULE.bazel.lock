@@ -957,6 +957,30 @@
         }
       }
     },
+    "@gazelle~0.34.0//internal/bzlmod:non_module_deps.bzl%non_module_deps": {
+      "general": {
+        "bzlTransitiveDigest": "mrbXXhrafMWfTRcQgAbXn5mNgq/mUvJjtSTdwemEMZg=",
+        "accumulatedFileDigests": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "bazel_gazelle_is_bazel_module": {
+            "bzlFile": "@@gazelle~0.34.0//internal:is_bazel_module.bzl",
+            "ruleClassName": "is_bazel_module",
+            "attributes": {"name":"--gazelle~0.34.0~non_module_deps~bazel_gazelle_is_bazel_module","is_bazel_module":true}
+          },
+          "bazel_gazelle_go_repository_tools": {
+            "bzlFile": "@@gazelle~0.34.0//internal:go_repository_tools.bzl",
+            "ruleClassName": "go_repository_tools",
+            "attributes": {"name":"--gazelle~0.34.0~non_module_deps~bazel_gazelle_go_repository_tools","go_cache":"@@gazelle~0.34.0~non_module_deps~bazel_gazelle_go_repository_cache//:go.env"}
+          },
+          "bazel_gazelle_go_repository_cache": {
+            "bzlFile": "@@gazelle~0.34.0//internal:go_repository_cache.bzl",
+            "ruleClassName": "go_repository_cache",
+            "attributes": {"name":"--gazelle~0.34.0~non_module_deps~bazel_gazelle_go_repository_cache","go_sdk_name":"--@rules_go~0.43.0~go_sdk~main___download_0","go_env":{}}
+          }
+        }
+      }
+    },
     "@rules_cc~0.0.8//cc:extensions.bzl%cc_configure": {
       "general": {
         "bzlTransitiveDigest": "EZdgaR5ehbS9IbQA7L4H/aThYRSIuPwfo2gM7jhzpYU=",

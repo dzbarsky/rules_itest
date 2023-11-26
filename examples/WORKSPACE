@@ -1,0 +1,9 @@
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+http_archive(
+    name = "com_github_redis_redis",
+    build_file = "//redis:BUILD.redis",
+    urls = ["https://github.com/redis/redis/archive/refs/tags/6.2.6.tar.gz"],
+    sha256 = "5d452038e346b5f31d7d277a41a4ec583bc8bf04403db620403638f79bdda891",
+    strip_prefix = "redis-6.2.6",
+)
