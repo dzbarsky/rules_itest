@@ -4,7 +4,7 @@ go_library(
     name = "runner_lib",
     srcs = [
         "runner.go",
-        "service_cmd.go",
+        "service_instance.go",
         "topo_starter.go",
     ],
     importpath = "rules_itest/runner",

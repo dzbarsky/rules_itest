@@ -3,10 +3,7 @@ load("@rules_itest//:itest.bzl", "itest_service")
 sh_binary(
     name = "health_check",
     srcs = ["health_check.sh"],
-    data = [
-        "@bazel_tools//tools/bash/runfiles",
-        "@com_github_redis_redis//:redis_cli",
-    ],
+    data = ["@com_github_redis_redis//:redis_cli"],
 )
 
 itest_service(
@@ -15,9 +12,11 @@ itest_service(
         "--port",
         "0",
         "--unixsocket",
-        "$$TEST_TMPDIR/redis.sock",
+        "$$TMPDIR/redis.sock",
+        "--unixsocketperm",
+        "770",
         "--dir",
-        "$$TEST_TMPDIR",
+        "$$TMPDIR",
     ],
     exe = "@com_github_redis_redis//:redis",
     health_check = ":health_check",

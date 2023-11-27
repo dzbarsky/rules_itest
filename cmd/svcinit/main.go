@@ -79,6 +79,15 @@ func main() {
 	}
 	_ = flags.Parse(svcInitArgs)
 
+	// If we are under `bazel run` for a service group, we may not have TEST_TMPDIR set.
+	tmpdir := os.Getenv("TEST_TMPDIR")
+	if tmpdir == "" {
+		var err error
+		tmpdir, err = os.MkdirTemp("", *testLabel)
+		must(err)
+	}
+	os.Setenv("TMPDIR", tmpdir)
+
 	isOneShot := !shouldHotReload && *testLabel != ""
 
 	serviceSpecs, err := readVersionedServiceSpecs(*serviceSpecsPath)
@@ -172,13 +181,12 @@ func readVersionedServiceSpecs(
 ) {
 	data, err := os.ReadFile(path)
 	must(err)
-	fmt.Println(string(data))
 
 	var serviceSpecs map[string]svclib.ServiceSpec
 	err = json.Unmarshal(data, &serviceSpecs)
 	must(err)
 
-	testTmpdir := os.Getenv("TEST_TMPDIR")
+	testTmpdir := os.Getenv("TMPDIR")
 
 	versionedServiceSpecs := make(map[string]svclib.VersionedServiceSpec, len(serviceSpecs))
 	for label, serviceSpec := range serviceSpecs {
@@ -188,7 +196,7 @@ func readVersionedServiceSpecs(
 		}
 
 		for i, arg := range serviceSpec.Args {
-			serviceSpec.Args[i] = strings.ReplaceAll(arg, "$$TEST_TMPDIR", testTmpdir)
+			serviceSpec.Args[i] = strings.ReplaceAll(arg, "$$TMPDIR", testTmpdir)
 		}
 
 		versionedServiceSpecs[label] = svclib.VersionedServiceSpec{
