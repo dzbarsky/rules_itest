@@ -133,6 +133,7 @@ def _itest_service_group_impl(ctx):
 _itest_service_group_attrs = {
     "services": attr.label_list(providers = [ServiceGroupInfo]),
     "data": attr.label_list(allow_files = True),
+    "env": attr.string_dict(),
 } | _svcinit_attr
 
 itest_service_group = rule(
@@ -165,7 +166,7 @@ def _create_svcinit_actions(ctx, services, extra_svcinit_args = ""):
     return service_specs_file
 
 def _service_test_impl(ctx):
-    extra_svcinit_args = ["--svc.test-label=" + str(ctx.label), ctx.executable.test.short_path]
+    extra_svcinit_args = [ctx.executable.test.short_path]
     service_specs_file = _create_svcinit_actions(
         ctx,
         _collect_services(ctx.attr.services),

@@ -26,12 +26,12 @@ func main() {
 	fmt.Println(os.Args)
 	flags := flag.NewFlagSet("svcinit", flag.ExitOnError)
 
-	testLabel := flags.String("svc.test-label", "", "Label for the test to run, if any. If none, test will not be executed.")
 	serviceSpecsPath := flags.String("svc.specs-path", "", "File defining which services to run")
 	allowSvcctl := flags.Bool("svc.allow-svcctl", false, "If true, spawns a server to handle svcctl commands")
 	_ = allowSvcctl
 
 	shouldHotReload := os.Getenv("IBAZEL_NOTIFY_CHANGES") == "y"
+	testLabel := os.Getenv("TEST_TARGET")
 
 	interactiveCh := make(chan struct{}, 100)
 	if shouldHotReload {
@@ -83,12 +83,12 @@ func main() {
 	tmpdir := os.Getenv("TEST_TMPDIR")
 	if tmpdir == "" {
 		var err error
-		tmpdir, err = os.MkdirTemp("", *testLabel)
+		tmpdir, err = os.MkdirTemp("", testLabel)
 		must(err)
 	}
 	os.Setenv("TMPDIR", tmpdir)
 
-	isOneShot := !shouldHotReload && *testLabel != ""
+	isOneShot := !shouldHotReload && testLabel != ""
 
 	serviceSpecs, err := readVersionedServiceSpecs(*serviceSpecsPath)
 	must(err)
@@ -108,11 +108,9 @@ func main() {
 	for {
 		var testCmd *exec.Cmd
 		var testErr error
-		if *testLabel != "" {
+		if testLabel != "" {
 			log.Printf("Executing test: %s\n", strings.Join(testArgs, " "))
-			// Wrap in a shell to handle sh_test
-			testCmd = exec.Command("/bin/sh",
-				append([]string{"-c", "--"}, testArgs...)...)
+			testCmd = exec.Command(testArgs[0], testArgs[1:]...)
 			testCmd.Stdout = os.Stdout
 			testCmd.Stderr = os.Stderr
 
@@ -143,9 +141,9 @@ func main() {
 			}
 		}
 
-		if *testLabel != "" {
+		if testLabel != "" {
 			_, err = reportWriter.Write([]byte(fmt.Sprintf("%s\t%s\t%s\n",
-				*testLabel, testCmd.ProcessState.UserTime(), testCmd.ProcessState.SystemTime())))
+				testLabel, testCmd.ProcessState.UserTime(), testCmd.ProcessState.SystemTime())))
 			must(err)
 		}
 

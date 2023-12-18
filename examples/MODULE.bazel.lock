@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 2,
-  "moduleFileHash": "d7636a887d8b8471149fa46997b630715ce399a7fdc9063bdc9bdbd997db9ab0",
+  "moduleFileHash": "1e99927269b99de174a140564b64db107fdc7d5d4dcf1bcd83352a8a19968a90",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -14,7 +14,7 @@
   },
   "localOverrideHashes": {
     "bazel_tools": "9dbae64ab8e0ee8370b9cfa4611bd90e0c151baffe4a67d50cb78d7e57b2da98",
-    "rules_itest": "82836593f3ba41beb99a86af158f168c95501ba16d5e28058f4688513c0913e9"
+    "rules_itest": "0f62730d9b52818943cc3e213106eebab0ce2e9c1d3c2b39f426f2103ccd09c4"
   },
   "moduleDepGraph": {
     "<root>": {
@@ -26,7 +26,7 @@
       "toolchainsToRegister": [],
       "extensionUsages": [
         {
-          "extensionBzlFile": "@rules_go//go:extensions.bzl",
+          "extensionBzlFile": "@io_bazel_rules_go//go:extensions.bzl",
           "extensionName": "go_sdk",
           "usingModule": "<root>",
           "location": {
@@ -56,7 +56,7 @@
         "bazel_tools": "bazel_tools@_",
         "local_config_platform": "local_config_platform@_",
         "rules_itest": "rules_itest@_",
-        "rules_go": "rules_go@0.43.0"
+        "io_bazel_rules_go": "rules_go@0.43.0"
       }
     },
     "bazel_tools@_": {
@@ -215,12 +215,12 @@
       "toolchainsToRegister": [],
       "extensionUsages": [
         {
-          "extensionBzlFile": "@gazelle//:extensions.bzl",
+          "extensionBzlFile": "@bazel_gazelle//:extensions.bzl",
           "extensionName": "go_deps",
           "usingModule": "rules_itest@_",
           "location": {
             "file": "@@rules_itest~override//:MODULE.bazel",
-            "line": 5,
+            "line": 6,
             "column": 24
           },
           "imports": {},
@@ -232,7 +232,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@rules_itest~override//:MODULE.bazel",
-                "line": 6,
+                "line": 7,
                 "column": 18
               }
             }
@@ -241,12 +241,12 @@
           "hasNonDevUseExtension": true
         },
         {
-          "extensionBzlFile": "@rules_go//go:extensions.bzl",
+          "extensionBzlFile": "@io_bazel_rules_go//go:extensions.bzl",
           "extensionName": "go_sdk",
           "usingModule": "rules_itest@_",
           "location": {
             "file": "@@rules_itest~override//:MODULE.bazel",
-            "line": 8,
+            "line": 9,
             "column": 23
           },
           "imports": {},
@@ -258,7 +258,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@rules_itest~override//:MODULE.bazel",
-                "line": 9,
+                "line": 10,
                 "column": 16
               }
             }
@@ -270,8 +270,8 @@
       "deps": {
         "bazel_tools": "bazel_tools@_",
         "local_config_platform": "local_config_platform@_",
-        "rules_go": "rules_go@0.43.0",
-        "gazelle": "gazelle@0.34.0"
+        "bazel_gazelle": "gazelle@0.34.0",
+        "io_bazel_rules_go": "rules_go@0.43.0"
       }
     },
     "rules_go@0.43.0": {
