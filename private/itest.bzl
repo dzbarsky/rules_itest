@@ -63,7 +63,7 @@ def _itest_binary_impl(ctx, extra_service_spec_kwargs, extra_exe_runfiles = []):
 
     service_specs_file = _create_svcinit_actions(ctx, services)
 
-    runfiles = ctx.runfiles(ctx.attr.data + [service_specs_file, version_file])
+    runfiles = ctx.runfiles(ctx.files.data + [service_specs_file, version_file])
     runfiles = runfiles.merge_all([
         service.default_runfiles
         for service in ctx.attr.deps
@@ -120,7 +120,7 @@ def _itest_service_group_impl(ctx):
     services = _collect_services(ctx.attr.services)
     service_specs_file = _create_svcinit_actions(ctx, services)
 
-    runfiles = ctx.runfiles(ctx.attr.data + [service_specs_file]).merge_all([
+    runfiles = ctx.runfiles(ctx.files.data + [service_specs_file]).merge_all([
         service.default_runfiles
         for service in ctx.attr.services
     ] + [ctx.attr._svcinit.default_runfiles])
@@ -173,7 +173,7 @@ def _service_test_impl(ctx):
         extra_svcinit_args = " ".join(extra_svcinit_args),
     )
 
-    runfiles = ctx.runfiles(ctx.attr.data + [service_specs_file])
+    runfiles = ctx.runfiles(ctx.files.data + [service_specs_file])
     runfiles = runfiles.merge_all([
         service.default_runfiles
         for service in ctx.attr.services
