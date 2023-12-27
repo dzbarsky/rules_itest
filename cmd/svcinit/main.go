@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"os/exec"
 	"strings"
@@ -202,15 +203,41 @@ func readVersionedServiceSpecs(
 			return nil, err
 		}
 
-		for i := range serviceSpec.Args {
-			serviceSpec.Args[i] = strings.ReplaceAll(serviceSpec.Args[i], "$${TMPDIR}", tmpDir)
-			serviceSpec.Args[i] = strings.ReplaceAll(serviceSpec.Args[i], "$${SOCKET_DIR}", socketDir)
-		}
-
-		versionedServiceSpecs[label] = svclib.VersionedServiceSpec{
+		s := svclib.VersionedServiceSpec{
 			ServiceSpec: serviceSpec,
 			Version:     string(version),
 		}
+
+		// Note, this can cause collisions. So be careful!
+		if s.ServiceSpec.AutoassignPort {
+			listener, err := net.Listen("tcp", ":0")
+			if err != nil {
+				return nil, err
+			}
+			_, port, err := net.SplitHostPort(listener.Addr().String())
+			if err != nil {
+				return nil, err
+			}
+			err = listener.Close()
+			if err != nil {
+				return nil, err
+			}
+
+			fmt.Printf("Assigning port '%s' to %s\n", port, serviceSpec.Label)
+
+			for i := range s.ServiceSpec.Args {
+				s.ServiceSpec.Args[i] = strings.ReplaceAll(s.ServiceSpec.Args[i], "$${PORT}", port)
+			}
+
+			s.AssignedPort = port
+		}
+
+		for i := range s.ServiceSpec.Args {
+			s.ServiceSpec.Args[i] = strings.ReplaceAll(s.ServiceSpec.Args[i], "$${TMPDIR}", tmpDir)
+			s.ServiceSpec.Args[i] = strings.ReplaceAll(s.ServiceSpec.Args[i], "$${SOCKET_DIR}", socketDir)
+		}
+
+		versionedServiceSpecs[label] = s
 	}
 	return versionedServiceSpecs, nil
 }

@@ -108,8 +108,8 @@ func prepareServiceInstance(serviceSpec svclib.VersionedServiceSpec) *ServiceIns
 	cmd.Stderr = os.Stderr
 
 	return &ServiceInstance{
-		ServiceSpec: serviceSpec.ServiceSpec,
-		Cmd:         cmd,
+		VersionedServiceSpec: serviceSpec,
+		Cmd:                  cmd,
 
 		startErrFn: sync.OnceValue(cmd.Start),
 	}

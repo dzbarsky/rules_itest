@@ -81,6 +81,7 @@ def _itest_service_impl(ctx):
         "type": "service",
         "http_health_check_address": ctx.attr.http_health_check_address,
         "autodetect_port": ctx.attr.autodetect_port,
+        "autoassign_port": ctx.attr.autoassign_port,
     }
     extra_exe_runfiles = []
 
@@ -96,6 +97,9 @@ def _itest_service_impl(ctx):
 _itest_service_attrs = _itest_binary_attrs | {
     "http_health_check_address": attr.string(),
     "autodetect_port": attr.bool(),
+    # Note, autoassigning a port is racy and this should be a method of last resort.
+    # Prefer to either let the binary take port 0 and autodetect it, or use a socket.
+    "autoassign_port": attr.bool(),
     "health_check": attr.label(cfg = "target", mandatory = False, executable = True),
 }
 

@@ -3,7 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 go_library(
     name = "go_service_lib",
     srcs = ["main.go"],
-    importpath = "rules_itest/tests/go_service",
+    importpath = "rules_itest/examples/go_service",
     visibility = ["//visibility:private"],
 )
 
@@ -11,4 +11,11 @@ go_binary(
     name = "go_service",
     embed = [":go_service_lib"],
     visibility = ["//visibility:public"],
+)
+
+go_library(
+    name = "lib",
+    srcs = ["main.go"],
+    importpath = "",
+    visibility = ["//visibility:private"],
 )

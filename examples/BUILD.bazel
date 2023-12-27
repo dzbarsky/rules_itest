@@ -1,6 +1,9 @@
+load("@bazel_gazelle//:def.bzl", "gazelle")
 load("@rules_itest//:itest.bzl", "itest_service", "itest_service_group")
 
 package(default_visibility = ["//visibility:public"])
+
+gazelle(name = "gazelle")
 
 itest_service(
     name = "speedy_service",

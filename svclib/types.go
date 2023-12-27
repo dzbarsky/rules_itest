@@ -3,7 +3,6 @@ package svclib
 // Created by Starlark
 type ServiceSpec struct {
 	// Type can be "service" or "task".
-
 	Type                   string            `json:"type"`
 	Label                  string            `json:"label"`
 	Args                   []string          `json:"args"`
@@ -14,10 +13,12 @@ type ServiceSpec struct {
 	VersionFile            string            `json:"version_file"`
 	Deps                   []string          `json:"deps"`
 	AutodetectPort         bool              `json:"autodetect_port"`
+	AutoassignPort         bool              `json:"autoassign_port"`
 }
 
 // Our internal representation.
 type VersionedServiceSpec struct {
 	ServiceSpec
-	Version string
+	Version      string
+	AssignedPort string // only set if AutoassignPort is true, otherwise empty string
 }

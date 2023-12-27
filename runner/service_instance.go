@@ -16,7 +16,7 @@ import (
 )
 
 type ServiceInstance struct {
-	svclib.ServiceSpec
+	svclib.VersionedServiceSpec
 	*exec.Cmd
 
 	startTime     time.Time
@@ -45,6 +45,18 @@ func (s *ServiceInstance) WaitUntilHealthy() error {
 	}
 
 	var port string
+
+	portFile := strings.ReplaceAll(s.Label, "/", "_")
+	if s.AutoassignPort {
+		// TODO(zbarsky): A little hacky to assign this here and also below.
+		// The port handling probably needs a refactor.
+		err := os.WriteFile(
+			filepath.Join(os.Getenv("TMPDIR"), portFile), []byte(s.AssignedPort), 0600)
+		if err != nil {
+			return nil
+		}
+	}
+
 	for {
 		err := s.Error()
 		if err != nil {
@@ -106,11 +118,8 @@ func (s *ServiceInstance) WaitUntilHealthy() error {
 		time.Sleep(200 * time.Millisecond)
 	}
 
-	// Note, this can cause collisions. So be careful!
-	portFile := strings.ReplaceAll(s.Label, "/", "_")
-
 	return os.WriteFile(
-		filepath.Join(os.Getenv("TEST_TMPDIR"), portFile), []byte(port), 0600)
+		filepath.Join(os.Getenv("TMPDIR"), portFile), []byte(port), 0600)
 }
 
 func (s *ServiceInstance) StartTime() time.Time {
