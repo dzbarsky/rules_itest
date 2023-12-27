@@ -192,7 +192,8 @@ func readVersionedServiceSpecs(
 	err = json.Unmarshal(data, &serviceSpecs)
 	must(err)
 
-	testTmpdir := os.Getenv("TMPDIR")
+	tmpDir := os.Getenv("TMPDIR")
+	socketDir := os.Getenv("SOCKET_DIR")
 
 	versionedServiceSpecs := make(map[string]svclib.VersionedServiceSpec, len(serviceSpecs))
 	for label, serviceSpec := range serviceSpecs {
@@ -201,8 +202,9 @@ func readVersionedServiceSpecs(
 			return nil, err
 		}
 
-		for i, arg := range serviceSpec.Args {
-			serviceSpec.Args[i] = strings.ReplaceAll(arg, "$$TMPDIR", testTmpdir)
+		for i := range serviceSpec.Args {
+			serviceSpec.Args[i] = strings.ReplaceAll(serviceSpec.Args[i], "$${TMPDIR}", tmpDir)
+			serviceSpec.Args[i] = strings.ReplaceAll(serviceSpec.Args[i], "$${SOCKET_DIR}", socketDir)
 		}
 
 		versionedServiceSpecs[label] = svclib.VersionedServiceSpec{
