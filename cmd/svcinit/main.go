@@ -210,7 +210,7 @@ func readVersionedServiceSpecs(
 
 		// Note, this can cause collisions. So be careful!
 		if s.ServiceSpec.AutoassignPort {
-			listener, err := net.Listen("tcp", ":0")
+			listener, err := net.Listen("tcp", "127.0.0.1:0")
 			if err != nil {
 				return nil, err
 			}
