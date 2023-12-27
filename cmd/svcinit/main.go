@@ -79,14 +79,22 @@ func main() {
 	}
 	_ = flags.Parse(svcInitArgs)
 
+	// Sockets have a short max path length (108 chars) so the TEST_TMPDIR path is way too long.
+	// Put them in the OS temp location - note that this is per-test (i.e. hermetic) on linux anyway.
+	socketDir, err := os.MkdirTemp("", "")
+	must(err)
+	os.Setenv("SOCKET_DIR", socketDir)
+	defer os.RemoveAll(socketDir)
+
 	// If we are under `bazel run` for a service group, we may not have TEST_TMPDIR set.
-	tmpdir := os.Getenv("TEST_TMPDIR")
-	if tmpdir == "" {
+	tmpDir := os.Getenv("TEST_TMPDIR")
+	if tmpDir == "" {
 		var err error
-		tmpdir, err = os.MkdirTemp("", testLabel)
+		tmpDir, err = os.MkdirTemp("", strings.ReplaceAll(testLabel, "/", "_"))
 		must(err)
+		defer os.RemoveAll(tmpDir)
 	}
-	os.Setenv("TMPDIR", tmpdir)
+	os.Setenv("TMPDIR", tmpDir)
 
 	isOneShot := !shouldHotReload && testLabel != ""
 
