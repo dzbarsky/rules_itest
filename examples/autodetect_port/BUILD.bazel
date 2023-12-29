@@ -25,13 +25,3 @@ go_test(
     )
     for i in range(10)
 ]
-
-go_test(
-    name = "lib_test",
-    srcs = ["autodetect_port_test.go"],
-)
-
-go_test(
-    name = "autodetect_port_test",
-    srcs = ["autodetect_port_test.go"],
-)

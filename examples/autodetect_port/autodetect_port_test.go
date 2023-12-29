@@ -4,16 +4,11 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"path/filepath"
 	"testing"
 )
 
 func TestServiceHealthcheck(t *testing.T) {
-	port, err := os.ReadFile(
-		filepath.Join(os.Getenv("TEST_TMPDIR"), "@@__autodetect_port:service"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	port := os.Getenv("@@//autodetect_port:service_PORT")
 
 	resp, err := http.DefaultClient.Get("http://127.0.0.1:" + string(port))
 	if err != nil {

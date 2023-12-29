@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -46,15 +45,10 @@ func (s *ServiceInstance) WaitUntilHealthy() error {
 
 	var port string
 
-	portFile := strings.ReplaceAll(s.Label, "/", "_")
 	if s.AutoassignPort {
 		// TODO(zbarsky): A little hacky to assign this here and also below.
 		// The port handling probably needs a refactor.
-		err := os.WriteFile(
-			filepath.Join(os.Getenv("TMPDIR"), portFile), []byte(s.AssignedPort), 0600)
-		if err != nil {
-			return nil
-		}
+		os.Setenv(s.Label+"_PORT", s.AssignedPort)
 	}
 
 	for {
@@ -118,8 +112,10 @@ func (s *ServiceInstance) WaitUntilHealthy() error {
 		time.Sleep(200 * time.Millisecond)
 	}
 
-	return os.WriteFile(
-		filepath.Join(os.Getenv("TMPDIR"), portFile), []byte(port), 0600)
+	if port != "" {
+		os.Setenv(s.Label+"_PORT", port)
+	}
+	return nil
 }
 
 func (s *ServiceInstance) StartTime() time.Time {
