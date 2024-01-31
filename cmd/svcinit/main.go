@@ -9,7 +9,9 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"os/signal"
 	"strings"
+	"syscall"
 	"text/tabwriter"
 	"time"
 
@@ -107,12 +109,31 @@ func main() {
 	}
 
 	r := runner.New(serviceSpecs)
-	err = r.StartAll()
-	must(err)
 
 	/*if *allowSvcctl {
 		addr := net.Listen(network, address)
 	}*/
+
+	shutdownCh := make(chan os.Signal, 1)
+	signal.Notify(shutdownCh, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		count := 0
+		for range shutdownCh {
+			if count == 0 {
+				fmt.Println("Shutdown requested, exiting gracefully. Press Ctrl-C again to force exit")
+				count++
+				_, err := r.StopAll()
+				must(err)
+				os.Exit(0)
+			} else {
+				fmt.Println("Multiple Ctrl-C detected, force-exiting")
+				os.Exit(1)
+			}
+		}
+	}()
+
+	err = r.StartAll()
+	must(err)
 
 	for {
 		var testCmd *exec.Cmd
