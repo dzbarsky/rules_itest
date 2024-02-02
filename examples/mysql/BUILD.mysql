@@ -1,0 +1,23 @@
+load("@bazel_skylib//rules:native_binary.bzl", "native_binary")
+
+native_binary(
+    name = "mysql_cli",
+    out = "mysql_cli",
+    src = "bin/mysql",
+    data = glob([
+        "lib/**",
+        "bin/libprotobuf-lite.3.19.4.dylib",
+    ], allow_empty = True),
+    visibility = ["//visibility:public"],
+)
+
+native_binary(
+    name = "mysqld",
+    out = "mysqld",
+    src = "bin/mysqld",
+    data = glob([
+        "lib/**",
+        "bin/libprotobuf-lite.3.19.4.dylib",
+    ], allow_empty = True),
+    visibility = ["//visibility:public"],
+)
