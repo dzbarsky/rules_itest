@@ -244,18 +244,20 @@ func readVersionedServiceSpecs(
 				return nil, err
 			}
 
-			fmt.Printf("Assigning port '%s' to %s\n", port, serviceSpec.Label)
-
-			for i := range s.ServiceSpec.Args {
-				s.ServiceSpec.Args[i] = strings.ReplaceAll(s.ServiceSpec.Args[i], "$${PORT}", port)
-			}
+			fmt.Printf("Assigning port %s to %s\n", port, s.Label)
 
 			s.AssignedPort = port
+			os.Setenv(s.Label+"_PORT", port)
+
+			for i := range s.ServiceSpec.Args {
+				s.Args[i] = strings.ReplaceAll(s.Args[i], "$${PORT}", port)
+			}
+			s.HealthCheck = strings.ReplaceAll(s.HealthCheck, "$${PORT}", port)
 		}
 
-		for i := range s.ServiceSpec.Args {
-			s.ServiceSpec.Args[i] = strings.ReplaceAll(s.ServiceSpec.Args[i], "$${TMPDIR}", tmpDir)
-			s.ServiceSpec.Args[i] = strings.ReplaceAll(s.ServiceSpec.Args[i], "$${SOCKET_DIR}", socketDir)
+		for i := range s.Args {
+			s.Args[i] = strings.ReplaceAll(s.Args[i], "$${TMPDIR}", tmpDir)
+			s.Args[i] = strings.ReplaceAll(s.Args[i], "$${SOCKET_DIR}", socketDir)
 		}
 
 		versionedServiceSpecs[label] = s

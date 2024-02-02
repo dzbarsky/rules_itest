@@ -41,12 +41,6 @@ func (s *ServiceInstance) WaitUntilHealthy() error {
 		return s.Wait()
 	}
 
-	if s.AutoassignPort {
-		// TODO(zbarsky): A little hacky to assign this here and also below.
-		// The port handling probably needs a refactor.
-		os.Setenv(s.Label+"_PORT", s.AssignedPort)
-	}
-
 	for {
 		err := s.Error()
 		if err != nil {
