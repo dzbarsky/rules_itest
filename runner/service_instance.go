@@ -6,8 +6,6 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -43,8 +41,6 @@ func (s *ServiceInstance) WaitUntilHealthy() error {
 		return s.Wait()
 	}
 
-	var port string
-
 	if s.AutoassignPort {
 		// TODO(zbarsky): A little hacky to assign this here and also below.
 		// The port handling probably needs a refactor.
@@ -57,39 +53,9 @@ func (s *ServiceInstance) WaitUntilHealthy() error {
 			return err
 		}
 
-		if s.AutodetectPort {
-			output, err := exec.Command("lsof",
-				// Network connections
-				"-i",
-				// AND
-				"-a",
-				// Owned by our pid
-				"-p", strconv.Itoa(s.Process.Pid),
-				"-F", "n").CombinedOutput()
-			if err != nil {
-				fmt.Println("No port yet; waiting...")
-				time.Sleep(200 * time.Millisecond)
-				continue
-			}
-
-			// Output looks like so:
-			//
-			// p24051
-			// f3
-			// nlocalhost:52263
-			parts := strings.Split(string(output), ":")
-			port = parts[1]
-			// Trim trailing \n
-			port = port[:len(port)-1]
-		}
-
 		log.Printf("Healthchecking %s\n", s.Label)
 
 		if s.HttpHealthCheckAddress != "" {
-			// It's OK to mutate our spec since we have made a copy of it.
-			s.HttpHealthCheckAddress = strings.ReplaceAll(
-				s.HttpHealthCheckAddress, "$PORT", port)
-
 			var resp *http.Response
 			resp, err = http.DefaultClient.Get(s.HttpHealthCheckAddress)
 			if resp != nil {
@@ -112,9 +78,6 @@ func (s *ServiceInstance) WaitUntilHealthy() error {
 		time.Sleep(200 * time.Millisecond)
 	}
 
-	if port != "" {
-		os.Setenv(s.Label+"_PORT", port)
-	}
 	return nil
 }
 

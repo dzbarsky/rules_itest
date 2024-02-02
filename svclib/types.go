@@ -12,7 +12,6 @@ type ServiceSpec struct {
 	HealthCheck            string            `json:"health_check"`
 	VersionFile            string            `json:"version_file"`
 	Deps                   []string          `json:"deps"`
-	AutodetectPort         bool              `json:"autodetect_port"`
 	AutoassignPort         bool              `json:"autoassign_port"`
 }
 

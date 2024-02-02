@@ -36,4 +36,5 @@ itest_service_group(
         ":sleepy_service",
         ":speedy_service",
     ],
+    tags = ["manual"],
 )
