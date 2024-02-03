@@ -252,7 +252,7 @@ func readVersionedServiceSpecs(
 			for i := range s.ServiceSpec.Args {
 				s.Args[i] = strings.ReplaceAll(s.Args[i], "$${PORT}", port)
 			}
-			s.HealthCheck = strings.ReplaceAll(s.HealthCheck, "$${PORT}", port)
+			s.HttpHealthCheckAddress = strings.ReplaceAll(s.HttpHealthCheckAddress, "$${PORT}", port)
 		}
 
 		for i := range s.Args {
