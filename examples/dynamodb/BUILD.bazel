@@ -23,17 +23,16 @@ java_binary(
 
 itest_service(
     name = "dynamodb",
-    autoassign_port = True,
     args = [
         "--dbPath",
         "$${TMPDIR}",
         "--port",
         "$${PORT}",
     ],
+    autoassign_port = True,
     exe = ":bin",
     health_check = ":health_check",
 )
-
 
 go_library(
     name = "dynamodb_lib",

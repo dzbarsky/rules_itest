@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"rules_itest/logger"
 	"rules_itest/svclib"
 )
 
@@ -99,16 +100,16 @@ func (r *runner) UpdateSpecsAndRestart(serviceSpecs ServiceSpecs) error {
 	return r.StartAll()
 }
 
-func prepareServiceInstance(serviceSpec svclib.VersionedServiceSpec) *ServiceInstance {
-	cmd := exec.Command(serviceSpec.Exe, serviceSpec.Args...)
-	for k, v := range serviceSpec.Env {
+func prepareServiceInstance(s svclib.VersionedServiceSpec) *ServiceInstance {
+	cmd := exec.Command(s.Exe, s.Args...)
+	for k, v := range s.Env {
 		cmd.Env = append(cmd.Env, k+"="+v)
 	}
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = logger.New(s.Label+"> ", s.Color, os.Stdout)
+	cmd.Stderr = logger.New(s.Label+"> ", s.Color, os.Stderr)
 
 	return &ServiceInstance{
-		VersionedServiceSpec: serviceSpec,
+		VersionedServiceSpec: s,
 		Cmd:                  cmd,
 
 		startErrFn: sync.OnceValue(cmd.Start),
