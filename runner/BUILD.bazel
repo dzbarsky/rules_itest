@@ -10,6 +10,7 @@ go_library(
     importpath = "rules_itest/runner",
     visibility = ["//:__subpackages__"],
     deps = [
+        "//logger",
         "//runner/topological",
         "//svclib",
     ],

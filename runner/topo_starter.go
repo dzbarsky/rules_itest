@@ -1,7 +1,7 @@
 package runner
 
 import (
-	"fmt"
+	"log"
 	"time"
 
 	"rules_itest/runner/topological"
@@ -17,13 +17,11 @@ func (st *startTask) Key() string {
 }
 
 func (st *startTask) Run() error {
-	fmt.Println("starting " + st.serviceInstance.Label)
+	log.Printf("Starting %s %v\n", colorize(st.serviceInstance.VersionedServiceSpec), st.serviceInstance.Args[1:])
 	startErr := st.serviceInstance.Start()
 	if startErr != nil {
 		return startErr
 	}
-	fmt.Printf("waiting for %s (pid %d)\n", st.serviceInstance.Label, st.serviceInstance.Process.Pid)
-
 	return st.serviceInstance.WaitUntilHealthy()
 
 }

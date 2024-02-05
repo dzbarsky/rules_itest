@@ -20,4 +20,5 @@ type VersionedServiceSpec struct {
 	ServiceSpec
 	Version      string
 	AssignedPort string // only set if AutoassignPort is true, otherwise empty string
+	Color        string
 }

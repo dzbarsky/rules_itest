@@ -6,6 +6,7 @@ go_library(
     importpath = "rules_itest/cmd/svcinit",
     visibility = ["//visibility:private"],
     deps = [
+        "//logger",
         "//runner:runner_lib",
         "//svclib",
     ],

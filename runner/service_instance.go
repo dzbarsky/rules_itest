@@ -9,8 +9,13 @@ import (
 	"sync"
 	"time"
 
+	"rules_itest/logger"
 	"rules_itest/svclib"
 )
+
+func colorize(s svclib.VersionedServiceSpec) string {
+	return s.Color + s.Label + logger.Reset
+}
 
 type ServiceInstance struct {
 	svclib.VersionedServiceSpec
@@ -38,7 +43,9 @@ func (s *ServiceInstance) WaitUntilHealthy() error {
 	}()
 
 	if s.Type == "task" {
-		return s.Wait()
+		err := s.Wait()
+		log.Printf("%s completed.\n", colorize(s.VersionedServiceSpec))
+		return err
 	}
 
 	for {
@@ -47,7 +54,7 @@ func (s *ServiceInstance) WaitUntilHealthy() error {
 			return err
 		}
 
-		log.Printf("Healthchecking %s\n", s.Label)
+		log.Printf("Healthchecking %s (pid %d)\n", colorize(s.VersionedServiceSpec), s.Process.Pid)
 
 		if s.HttpHealthCheckAddress != "" {
 			var resp *http.Response
@@ -58,13 +65,13 @@ func (s *ServiceInstance) WaitUntilHealthy() error {
 
 		} else if s.HealthCheck != "" {
 			cmd := exec.Command(s.HealthCheck)
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
+			cmd.Stdout = logger.New(s.Label+"? ", s.Color, os.Stdout)
+			cmd.Stderr = logger.New(s.Label+"? ", s.Color, os.Stderr)
 			err = cmd.Run()
 		}
 
 		if err == nil {
-			log.Printf("%s healthy!\n", s.Label)
+			log.Printf("%s healthy!\n", colorize(s.VersionedServiceSpec))
 			break
 		}
 

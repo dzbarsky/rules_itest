@@ -15,6 +15,7 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"rules_itest/logger"
 	"rules_itest/runner"
 	"rules_itest/svclib"
 )
@@ -26,7 +27,6 @@ func must(err error) {
 }
 
 func main() {
-	fmt.Println(os.Args)
 	flags := flag.NewFlagSet("svcinit", flag.ExitOnError)
 
 	serviceSpecsPath := flags.String("svc.specs-path", "", "File defining which services to run")
@@ -103,10 +103,6 @@ func main() {
 
 	serviceSpecs, err := readVersionedServiceSpecs(*serviceSpecsPath)
 	must(err)
-
-	for k, v := range serviceSpecs {
-		fmt.Println(k, v)
-	}
 
 	r := runner.New(serviceSpecs)
 
@@ -228,6 +224,8 @@ func readVersionedServiceSpecs(
 			ServiceSpec: serviceSpec,
 			Version:     string(version),
 		}
+
+		s.Color = logger.Colorize(s.Label)
 
 		// Note, this can cause collisions. So be careful!
 		if s.ServiceSpec.AutoassignPort {
