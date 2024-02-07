@@ -2,7 +2,8 @@ package logger
 
 import (
 	"bytes"
-	"hash/fnv"
+	"crypto/sha256"
+	"encoding/binary"
 	"io"
 	"strconv"
 )
@@ -90,10 +91,11 @@ var colors = []int{
 }
 
 func Colorize(s string) string {
-	hash := fnv.New32a()
+	hash := sha256.New()
 	hash.Write([]byte(s))
 	// Inspired by https://github.com/debug-js/debug/blob/f66cb2d9f729e1a592e72d3698e3b75329d75a25/src/node.js#L172-L173
-	chosen := colors[hash.Sum32()%uint32(len(colors))]
+	hashedUint32 := binary.BigEndian.Uint32(hash.Sum(nil)[:4])
+	chosen := colors[hashedUint32%uint32(len(colors))]
 	return "\u001B[38;5;" + strconv.Itoa(chosen) + ";1m"
 }
 
