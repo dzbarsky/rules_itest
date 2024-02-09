@@ -2,8 +2,8 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"os"
+	"os/exec"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
@@ -16,15 +16,12 @@ func must(err error) {
 }
 
 func main() {
-	// TODO(zbarsky): Would be a bit nicer to provide MustPort as an svclib library
-	ports := map[string]string{}
-	err := json.Unmarshal([]byte(os.Getenv("ASSIGNED_PORTS")), &ports)
+	cmd := exec.Command(os.Getenv("GET_ASSIGNED_PORT_BIN"), "@@//dynamodb:dynamodb")
+	port, err := cmd.CombinedOutput()
 	must(err)
 
-	port := ports["@@//dynamodb:dynamodb"]
-
 	client := dynamodb.New(dynamodb.Options{
-		EndpointResolver: dynamodb.EndpointResolverFromURL("http://127.0.0.1:" + port),
+		EndpointResolver: dynamodb.EndpointResolverFromURL("http://127.0.0.1:" + string(port)),
 		Retryer:          aws.NopRetryer{},
 		Credentials: aws.CredentialsProviderFunc(func(ctx context.Context) (aws.Credentials, error) {
 			return aws.Credentials{

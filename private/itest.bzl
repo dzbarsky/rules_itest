@@ -13,8 +13,23 @@ def _collect_services(deps):
         services |= dep[ServiceGroupInfo].services
     return services
 
-_svcinit_attr = {
-    "_svcinit": attr.label(default = "//cmd/svcinit", executable = True, cfg = "target"),
+def _run_environment(ctx):
+    return RunEnvironmentInfo(environment={
+        "GET_ASSIGNED_PORT_BIN": ctx.file._get_assigned_port.short_path,
+    })
+
+_svcinit_attrs = {
+    "_svcinit": attr.label(
+        default = "//cmd/svcinit",
+        executable = True,
+        cfg = "target",
+    ),
+    "_get_assigned_port": attr.label(
+        default = "//cmd/get_assigned_port",
+        allow_single_file = True,
+        executable = True,
+        cfg = "target",
+    ),
 }
 
 _itest_binary_attrs = {
@@ -22,7 +37,7 @@ _itest_binary_attrs = {
     "env": attr.string_dict(),
     "data": attr.label_list(allow_files = True),
     "deps": attr.label_list(providers = [ServiceGroupInfo]),
-} | _svcinit_attr
+} | _svcinit_attrs
 
 def _itest_binary_impl(ctx, extra_service_spec_kwargs, extra_exe_runfiles = []):
     version_file = ctx.actions.declare_file(ctx.label.name + ".version")
@@ -69,9 +84,11 @@ def _itest_binary_impl(ctx, extra_service_spec_kwargs, extra_exe_runfiles = []):
         for service in ctx.attr.deps
     ] + [
         ctx.attr._svcinit.default_runfiles,
+        ctx.attr._get_assigned_port.default_runfiles,
     ] + exe_runfiles)
 
     return [
+        _run_environment(ctx),
         DefaultInfo(runfiles = runfiles),
         ServiceGroupInfo(services = services),
     ]
@@ -124,9 +141,13 @@ def _itest_service_group_impl(ctx):
     runfiles = ctx.runfiles(ctx.files.data + [service_specs_file]).merge_all([
         service.default_runfiles
         for service in ctx.attr.services
-    ] + [ctx.attr._svcinit.default_runfiles])
+    ] + [
+        ctx.attr._svcinit.default_runfiles,
+        ctx.attr._get_assigned_port.default_runfiles,
+    ])
 
     return [
+        _run_environment(ctx),
         DefaultInfo(runfiles = runfiles),
         ServiceGroupInfo(services = services),
     ]
@@ -135,7 +156,7 @@ _itest_service_group_attrs = {
     "services": attr.label_list(providers = [ServiceGroupInfo]),
     "data": attr.label_list(allow_files = True),
     "env": attr.string_dict(),
-} | _svcinit_attr
+} | _svcinit_attrs
 
 itest_service_group = rule(
     implementation = _itest_service_group_impl,
@@ -178,9 +199,14 @@ def _service_test_impl(ctx):
     runfiles = runfiles.merge_all([
         service.default_runfiles
         for service in ctx.attr.services
-    ] + [ctx.attr._svcinit.default_runfiles, ctx.attr.test.default_runfiles])
+    ] + [
+        ctx.attr._svcinit.default_runfiles,
+        ctx.attr._get_assigned_port.default_runfiles,
+        ctx.attr.test.default_runfiles,
+    ])
 
     return [
+        _run_environment(ctx),
         DefaultInfo(runfiles = runfiles),
         coverage_common.instrumented_files_info(ctx, dependency_attributes = ["test"]),
     ]
