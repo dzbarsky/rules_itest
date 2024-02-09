@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -15,7 +16,12 @@ func must(err error) {
 }
 
 func main() {
-	port := os.Getenv("@@//dynamodb:dynamodb_PORT")
+	// TODO(zbarsky): Would be a bit nicer to provide MustPort as an svclib library
+	ports := map[string]string{}
+	err := json.Unmarshal([]byte(os.Getenv("ASSIGNED_PORTS")), &ports)
+	must(err)
+
+	port := ports["@@//dynamodb:dynamodb"]
 
 	client := dynamodb.New(dynamodb.Options{
 		EndpointResolver: dynamodb.EndpointResolverFromURL("http://127.0.0.1:" + port),
@@ -28,6 +34,6 @@ func main() {
 		}),
 	})
 
-	_, err := client.ListTables(context.Background(), &dynamodb.ListTablesInput{})
+	_, err = client.ListTables(context.Background(), &dynamodb.ListTablesInput{})
 	must(err)
 }

@@ -213,6 +213,7 @@ func readVersionedServiceSpecs(
 	tmpDir := os.Getenv("TMPDIR")
 	socketDir := os.Getenv("SOCKET_DIR")
 
+	ports := svclib.Ports{}
 	versionedServiceSpecs := make(map[string]svclib.VersionedServiceSpec, len(serviceSpecs))
 	for label, serviceSpec := range serviceSpecs {
 		version, err := os.ReadFile(serviceSpec.VersionFile)
@@ -245,7 +246,7 @@ func readVersionedServiceSpecs(
 			fmt.Printf("Assigning port %s to %s\n", port, s.Label)
 
 			s.AssignedPort = port
-			os.Setenv(s.Label+"_PORT", port)
+			ports.Set(s.Label, port)
 
 			for i := range s.ServiceSpec.Args {
 				s.Args[i] = strings.ReplaceAll(s.Args[i], "$${PORT}", port)
@@ -260,5 +261,10 @@ func readVersionedServiceSpecs(
 
 		versionedServiceSpecs[label] = s
 	}
+
+	serializedPorts, err := ports.Marshal()
+	must(err)
+	os.Setenv("ASSIGNED_PORTS", string(serializedPorts))
+
 	return versionedServiceSpecs, nil
 }
