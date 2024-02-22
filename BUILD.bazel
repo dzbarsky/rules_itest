@@ -2,8 +2,8 @@ load("@bazel_gazelle//:def.bzl", "gazelle")
 
 gazelle(name = "gazelle")
 
-sh_test(
+cc_binary(
     name = "exit0",
-    srcs = ["exit0.sh"],
+    srcs = ["exit0.c"],
     visibility = ["//visibility:public"],
 )
