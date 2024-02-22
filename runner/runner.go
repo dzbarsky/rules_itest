@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -9,28 +10,32 @@ import (
 	"time"
 
 	"rules_itest/logger"
+	"rules_itest/runner/topological"
 	"rules_itest/svclib"
 )
 
 type ServiceSpecs = map[string]svclib.VersionedServiceSpec
 
 type runner struct {
+	ctx          context.Context
 	serviceSpecs ServiceSpecs
 
 	serviceInstances map[string]*ServiceInstance
 }
 
-func New(serviceSpecs ServiceSpecs) *runner {
+func New(ctx context.Context, serviceSpecs ServiceSpecs) *runner {
 	r := &runner{
+		ctx:              ctx,
 		serviceInstances: map[string]*ServiceInstance{},
 	}
 	r.UpdateSpecs(serviceSpecs)
 	return r
 }
 
-func (r *runner) StartAll() error {
+func (r *runner) StartAll() ([]topological.Task, error) {
 	starter := newTopologicalStarter(r.serviceInstances)
-	return starter.Run()
+	err := starter.Run(r.ctx)
+	return starter.CriticalPath(), err
 }
 
 func (r *runner) StopAll() (map[string]*os.ProcessState, error) {
@@ -42,6 +47,16 @@ func (r *runner) StopAll() (map[string]*os.ProcessState, error) {
 	}
 
 	return states, nil
+}
+
+func (r *runner) GetStartDurations() map[string]time.Duration {
+	durations := make(map[string]time.Duration)
+
+	for _, serviceInstance := range r.serviceInstances {
+		durations[serviceInstance.Label] = serviceInstance.startDuration
+	}
+
+	return durations
 }
 
 type updateActions struct {
@@ -90,18 +105,18 @@ func (r *runner) UpdateSpecs(serviceSpecs ServiceSpecs) {
 	}
 
 	for _, label := range updateActions.toStartLabels {
-		r.serviceInstances[label] = prepareServiceInstance(serviceSpecs[label])
+		r.serviceInstances[label] = prepareServiceInstance(r.ctx, serviceSpecs[label])
 	}
 	r.serviceSpecs = serviceSpecs
 }
 
-func (r *runner) UpdateSpecsAndRestart(serviceSpecs ServiceSpecs) error {
+func (r *runner) UpdateSpecsAndRestart(serviceSpecs ServiceSpecs) ([]topological.Task, error) {
 	r.UpdateSpecs(serviceSpecs)
 	return r.StartAll()
 }
 
-func prepareServiceInstance(s svclib.VersionedServiceSpec) *ServiceInstance {
-	cmd := exec.Command(s.Exe, s.Args...)
+func prepareServiceInstance(ctx context.Context, s svclib.VersionedServiceSpec) *ServiceInstance {
+	cmd := exec.CommandContext(ctx, s.Exe, s.Args...)
 	for k, v := range s.Env {
 		cmd.Env = append(cmd.Env, k+"="+v)
 	}

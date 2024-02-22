@@ -1,6 +1,7 @@
 package topological
 
 import (
+	"context"
 	"runtime"
 	"slices"
 	"sync"
@@ -9,14 +10,14 @@ import (
 
 type Task interface {
 	Key() string
-	Run() error
+	Run(ctx context.Context) error
 	Dependents() []Task
 	Duration() time.Duration
 	StartTime() time.Time
 }
 
 type Runner interface {
-	Run() error
+	Run(ctx context.Context) error
 	CriticalPath() []Task
 	Completed() int
 }
@@ -61,8 +62,8 @@ func (t *reversedTask) Key() string {
 	return t.task.Key()
 }
 
-func (t *reversedTask) Run() error {
-	return t.task.Run()
+func (t *reversedTask) Run(ctx context.Context) error {
+	return t.task.Run(ctx)
 }
 
 func (t *reversedTask) Dependents() []Task {
@@ -174,7 +175,7 @@ func (ts *runner) markDone(task Task) {
 	ts.cv.Broadcast()
 }
 
-func (ts *runner) worker(id int) {
+func (ts *runner) worker(ctx context.Context, id int) {
 	// As long as we have tasks and it is not time to die keep starting
 	// thing.
 	ts.cv.L.Lock()
@@ -185,7 +186,7 @@ func (ts *runner) worker(id int) {
 		}
 		ts.cv.L.Unlock()
 
-		performErr := task.Run()
+		performErr := task.Run(ctx)
 		ts.cv.L.Lock()
 		if performErr != nil {
 			ts.setErr(performErr)
@@ -198,10 +199,10 @@ func (ts *runner) worker(id int) {
 	ts.wg.Done()
 }
 
-func (ts *runner) Run() error {
+func (ts *runner) Run(ctx context.Context) error {
 	for i := 0; i <= runtime.NumCPU()*2; i++ {
 		ts.wg.Add(1)
-		go ts.worker(i)
+		go ts.worker(ctx, i)
 	}
 	ts.wg.Wait()
 	return ts.err

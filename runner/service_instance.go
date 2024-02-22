@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -30,12 +31,12 @@ type ServiceInstance struct {
 	runErr error
 }
 
-func (s *ServiceInstance) Start() error {
+func (s *ServiceInstance) Start(ctx context.Context) error {
 	s.startTime = time.Now()
 	return s.startErrFn()
 }
 
-func (s *ServiceInstance) WaitUntilHealthy() error {
+func (s *ServiceInstance) WaitUntilHealthy(ctx context.Context) error {
 	defer func() {
 		s.mu.Lock()
 		defer s.mu.Unlock()
@@ -54,6 +55,11 @@ func (s *ServiceInstance) WaitUntilHealthy() error {
 			return err
 		}
 
+		err = ctx.Err()
+		if err != nil {
+			return err
+		}
+
 		log.Printf("Healthchecking %s (pid %d)\n", colorize(s.VersionedServiceSpec), s.Process.Pid)
 
 		if s.HttpHealthCheckAddress != "" {
@@ -64,7 +70,7 @@ func (s *ServiceInstance) WaitUntilHealthy() error {
 			}
 
 		} else if s.HealthCheck != "" {
-			cmd := exec.Command(s.HealthCheck)
+			cmd := exec.CommandContext(ctx, s.HealthCheck)
 			cmd.Stdout = logger.New(s.Label+"? ", s.Color, os.Stdout)
 			cmd.Stderr = logger.New(s.Label+"? ", s.Color, os.Stderr)
 			err = cmd.Run()

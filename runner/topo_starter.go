@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"context"
 	"log"
 	"time"
 
@@ -16,13 +17,13 @@ func (st *startTask) Key() string {
 	return st.serviceInstance.Label
 }
 
-func (st *startTask) Run() error {
+func (st *startTask) Run(ctx context.Context) error {
 	log.Printf("Starting %s %v\n", colorize(st.serviceInstance.VersionedServiceSpec), st.serviceInstance.Args[1:])
-	startErr := st.serviceInstance.Start()
+	startErr := st.serviceInstance.Start(ctx)
 	if startErr != nil {
 		return startErr
 	}
-	return st.serviceInstance.WaitUntilHealthy()
+	return st.serviceInstance.WaitUntilHealthy(ctx)
 
 }
 

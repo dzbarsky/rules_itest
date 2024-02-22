@@ -2,7 +2,10 @@ package main
 
 import (
 	"bufio"
+	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -104,39 +107,60 @@ func main() {
 	serviceSpecs, err := readVersionedServiceSpecs(*serviceSpecsPath)
 	must(err)
 
-	r := runner.New(serviceSpecs)
-
 	/*if *allowSvcctl {
 		addr := net.Listen(network, address)
 	}*/
 
-	shutdownCh := make(chan os.Signal, 1)
-	signal.Notify(shutdownCh, syscall.SIGINT, syscall.SIGTERM)
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+
+	r := runner.New(ctx, serviceSpecs)
+
+	signalCh := make(chan os.Signal, 1)
+	signal.Notify(signalCh, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		count := 0
-		for range shutdownCh {
+		for range signalCh {
 			if count == 0 {
-				fmt.Println("Shutdown requested, exiting gracefully. Press Ctrl-C again to force exit")
+				log.Println("Shutdown requested, exiting gracefully. Press Ctrl-C again to force exit")
+				cancelFunc()
 				count++
-				_, err := r.StopAll()
-				must(err)
-				os.Exit(0)
 			} else {
-				fmt.Println("Multiple Ctrl-C detected, force-exiting")
+				log.Println("Multiple Ctrl-C detected, force-exiting")
 				os.Exit(1)
 			}
 		}
 	}()
 
-	err = r.StartAll()
+	criticalPath, err := r.StartAll()
+	if errors.Is(err, context.Canceled) {
+		_, err := r.StopAll()
+		must(err)
+		return
+	}
 	must(err)
 
+	// API is                 NewWriter(output io.Writer, minwidth, tabwidth, padding int, padchar byte, flags uint) *Writer
+	reportWriter := tabwriter.NewWriter(os.Stdout, 0, 8, 8, ' ', 0)
+	buf := bytes.NewBuffer(nil)
+
 	for {
+		buf.WriteString("\nTarget\tCritical Path Contribution\n")
+		for _, task := range criticalPath {
+			buf.WriteString(fmt.Sprintf("%s\t%s\n", task.Key(), task.Duration()))
+		}
+		_, err := reportWriter.Write(buf.Bytes())
+		must(err)
+		buf.Reset()
+		err = reportWriter.Flush()
+		must(err)
+
 		var testCmd *exec.Cmd
 		var testErr error
 		if testLabel != "" {
+			fmt.Println("")
 			log.Printf("Executing test: %s\n", strings.Join(testArgs, " "))
-			testCmd = exec.Command(testArgs[0], testArgs[1:]...)
+			testCmd = exec.CommandContext(ctx, testArgs[0], testArgs[1:]...)
 			testCmd.Stdout = os.Stdout
 			testCmd.Stderr = os.Stderr
 
@@ -153,26 +177,31 @@ func main() {
 		}
 
 		fmt.Println()
-		// API is                 NewWriter(output io.Writer, minwidth, tabwidth, padding int, padchar byte, flags uint) *Writer
-		reportWriter := tabwriter.NewWriter(os.Stdout, 0, 4, 4, ' ', 0)
-		reportWriter.Write([]byte("Target\tUser Time\tSystem Time\n"))
 
 		if isOneShot {
+			buf.WriteString("Target\tUser Time\tSystem Time\n")
 			states, err := r.StopAll()
 			must(err)
 			for label, state := range states {
-				_, err = reportWriter.Write([]byte(fmt.Sprintf("%s\t%s\t%s\n",
-					label, state.UserTime(), state.SystemTime())))
-				must(err)
+				buf.WriteString(fmt.Sprintf("%s\t%s\t%s\n",
+					label, state.UserTime(), state.SystemTime()))
+			}
+		} else {
+			buf.WriteString("Target\tStartup Time\n")
+			durations := r.GetStartDurations()
+			for label, duration := range durations {
+				buf.WriteString(fmt.Sprintf("%s\t%s\n", label, duration))
 			}
 		}
 
 		if testLabel != "" {
-			_, err = reportWriter.Write([]byte(fmt.Sprintf("%s\t%s\t%s\n",
-				testLabel, testCmd.ProcessState.UserTime(), testCmd.ProcessState.SystemTime())))
-			must(err)
+			buf.WriteString(fmt.Sprintf("%s\t%s\t%s\n",
+				testLabel, testCmd.ProcessState.UserTime(), testCmd.ProcessState.SystemTime()))
 		}
-
+		buf.WriteRune('\n')
+		_, err = reportWriter.Write(buf.Bytes())
+		must(err)
+		buf.Reset()
 		err = reportWriter.Flush()
 		must(err)
 
@@ -187,13 +216,21 @@ func main() {
 			break
 		}
 
-		<-interactiveCh
+		select {
+		case <-ctx.Done():
+			log.Println("Shutting down services.")
+			_, err := r.StopAll()
+			must(err)
+			log.Println("Cleaning up.")
+			return
+		case <-interactiveCh:
+		}
 
 		// Restart any services as needed.
 		serviceSpecs, err := readVersionedServiceSpecs(*serviceSpecsPath)
 		must(err)
 
-		err = r.UpdateSpecsAndRestart(serviceSpecs)
+		criticalPath, err = r.UpdateSpecsAndRestart(serviceSpecs)
 		must(err)
 	}
 }
