@@ -6,6 +6,7 @@ local_path_override(
     path = "../",
 )
 
+bazel_dep(name = "aspect_bazel_lib", version = "2.4.2")
 bazel_dep(name = "gazelle", version = "0.34.0", repo_name = "bazel_gazelle")
 
 go_deps = use_extension("@bazel_gazelle//:extensions.bzl", "go_deps")

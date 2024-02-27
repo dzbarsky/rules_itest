@@ -1,0 +1,97 @@
+load("@aspect_bazel_lib//lib:copy_file.bzl", "copy_file")
+load("@rules_itest//:itest.bzl", "itest_service")
+load(":bootstrap.bzl", "mysql_impl")
+
+alias(
+    name = "mysql_cli",
+    actual = select({
+        "@bazel_tools//src/conditions:darwin_arm64": "@mysql_8_0_34_macos13-arm64//:mysql_cli",
+        "@bazel_tools//src/conditions:darwin_x86_64": "@mysql_8_0_34_macos13-x86_64//:mysql_cli",
+        "@bazel_tools//src/conditions:linux_aarch64": "@mysql_8_0_34_linux-glibc2.28-aarch64//:mysql_cli",
+        "@bazel_tools//src/conditions:linux_x86_64": "@mysql_8_0_34_linux-glibc2.28-x86_64//:mysql_cli",
+    }),
+)
+
+alias(
+    name = "mysqld",
+    actual = select({
+        "@bazel_tools//src/conditions:darwin_arm64": "@mysql_8_0_34_macos13-arm64//:mysqld",
+        "@bazel_tools//src/conditions:darwin_x86_64": "@mysql_8_0_34_macos13-x86_64//:mysqld",
+        "@bazel_tools//src/conditions:linux_aarch64": "@mysql_8_0_34_linux-glibc2.28-aarch64//:mysqld",
+        "@bazel_tools//src/conditions:linux_x86_64": "@mysql_8_0_34_linux-glibc2.28-x86_64//:mysqld",
+    }),
+)
+
+mysql_impl(
+    name = "vanilla",
+    mysqld = ":mysqld",
+)
+
+mysql_impl(
+    name = "with_migrations",
+    init_sql = "//mysql:init.sql",
+    mysqld = ":mysqld",
+)
+
+# =================================================================================================== #
+# ============================================ Socket version ======================================= #
+# =================================================================================================== #
+genrule(
+    name = "gen_socket_health_check",
+    outs = ["socket_health_check.sh"],
+    cmd = """echo '#!/bin/sh
+MYSQL_CLI=$(rootpath :mysql_cli)
+set -x
+exec "$$MYSQL_CLI" --no-defaults --socket "$$SOCKET_DIR/mysql.sock" --user user --password="password" -e "SELECT 1"' > $@""",
+    srcs = [":mysql_cli"],
+)
+
+sh_binary(
+    name = "socket_health_check",
+    srcs = ["socket_health_check.sh"],
+    data = [":mysql_cli"],
+)
+
+itest_service(
+    name = "mysql_listening_on_socket",
+    exe = ":with_migrations",
+    args = [
+        "--skip_networking",
+	    "--socket", "$${SOCKET_DIR}/mysql.sock",
+    ],
+    health_check = ":socket_health_check",
+    visibility = ["//visibility:public"],
+)
+
+# =================================================================================================== #
+# ============================================ Port version ======================================= #
+# =================================================================================================== #
+
+sh_binary(
+    name = "port_health_check",
+    srcs = ["port_health_check.sh"],
+    data = [":mysql_cli"],
+)
+
+genrule(
+    name = "gen_port_health_check",
+    outs = ["port_health_check.sh"],
+    cmd = """echo '#!/bin/sh
+MYSQL_CLI=$(rootpath :mysql_cli)
+PORT=$$($$GET_ASSIGNED_PORT_BIN @@//mysql:mysql_listening_on_port)
+set -x
+exec "$$MYSQL_CLI" --no-defaults --protocol tcp --host 127.0.0.1 --port "$$PORT" --user root -e "SELECT 1"' > $@""",
+    srcs = [":mysql_cli"],
+)
+
+itest_service(
+    name = "mysql_listening_on_port",
+    exe = ":with_migrations",
+    autoassign_port = True,
+    args = [
+        "--bind-address", "127.0.0.1",
+        "--port", "$${PORT}",
+    ],
+    health_check = ":port_health_check",
+    visibility = ["//visibility:public"],
+)
