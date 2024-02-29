@@ -117,6 +117,10 @@ func (r *runner) UpdateSpecsAndRestart(serviceSpecs ServiceSpecs) ([]topological
 
 func prepareServiceInstance(ctx context.Context, s svclib.VersionedServiceSpec) *ServiceInstance {
 	cmd := exec.CommandContext(ctx, s.Exe, s.Args...)
+	// Note, this leaks the caller's env into the service, so it's not hermetic.
+	// For `bazel test`, Bazel is already sanitizing the env, so it's fine.
+	// For `bazel run`, there is no expectation of hermeticity, and it can be nice to use env to control behavior.
+	cmd.Env = os.Environ()
 	for k, v := range s.Env {
 		cmd.Env = append(cmd.Env, k+"="+v)
 	}
