@@ -267,7 +267,26 @@ func readVersionedServiceSpecs(
 
 		// Note, this can cause collisions. So be careful!
 		if s.ServiceSpec.AutoassignPort {
-			listener, err := net.Listen("tcp", "127.0.0.1:0")
+
+			// We do a bit of a dance here to set SO_LINGER to 0. For details, see
+			// https://stackoverflow.com/questions/71975992/what-really-is-the-linger-time-that-can-be-set-with-so-linger-on-sockets
+			lc := net.ListenConfig{
+				Control: func(network, address string, conn syscall.RawConn) error {
+					var setSockoptErr error
+					err := conn.Control(func(fd uintptr) {
+						setSockoptErr = syscall.SetsockoptLinger(int(fd), syscall.SOL_SOCKET, syscall.SO_LINGER, &syscall.Linger{
+							Onoff:  1,
+							Linger: 0,
+						})
+					})
+					if err != nil {
+						return err
+					}
+					return setSockoptErr
+				},
+			}
+
+			listener, err := lc.Listen(context.Background(), "tcp", "127.0.0.1:0")
 			if err != nil {
 				return nil, err
 			}
