@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"reflect"
 	"sync"
+	"syscall"
 	"time"
 
 	"rules_itest/logger"
@@ -136,7 +137,7 @@ func prepareServiceInstance(ctx context.Context, s svclib.VersionedServiceSpec) 
 }
 
 func stopInstance(serviceInstance *ServiceInstance) {
-	serviceInstance.Cmd.Process.Kill()
+	serviceInstance.Cmd.Process.Signal(syscall.SIGTERM)
 	serviceInstance.Cmd.Wait()
 
 	for serviceInstance.Cmd.ProcessState == nil {
