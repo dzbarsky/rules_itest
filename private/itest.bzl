@@ -14,7 +14,7 @@ def _collect_services(deps):
     return services
 
 def _run_environment(ctx):
-    return RunEnvironmentInfo(environment={
+    return RunEnvironmentInfo(environment = {
         "GET_ASSIGNED_PORT_BIN": ctx.file._get_assigned_port.short_path,
     })
 
@@ -30,6 +30,12 @@ _svcinit_attrs = {
         executable = True,
         cfg = "target",
     ),
+    "_prepare_version_file": attr.label(
+        default = "//cmd/prepare_version_file",
+        allow_single_file = True,
+        executable = True,
+        cfg = "exec",
+    ),
 }
 
 _itest_binary_attrs = {
@@ -40,17 +46,14 @@ _itest_binary_attrs = {
 } | _svcinit_attrs
 
 def _itest_binary_impl(ctx, extra_service_spec_kwargs, extra_exe_runfiles = []):
-    version_file = ctx.actions.declare_file(ctx.label.name + ".version")
-
     exe_runfiles = [ctx.attr.exe.default_runfiles] + extra_exe_runfiles
 
     version_file_deps = ctx.files.data + ctx.files.exe
     version_file_deps_trans = [runfiles.files for runfiles in exe_runfiles]
 
-    _create_version_file(
+    version_file = _create_version_file(
         ctx,
         depset(direct = version_file_deps, transitive = version_file_deps_trans),
-        output = version_file,
     )
 
     args = [
@@ -221,16 +224,41 @@ service_test = rule(
     test = True,
 )
 
-def _create_version_file(ctx, inputs, output):
+def _create_version_file(ctx, inputs):
+    # This setup is extremely hacky.
+    # We want a notion of "service version" for per-service hot-reloading that we can use with ibazel.
+    # However, computing an actual hash is needlessly slow; so we use `date` instead.
+    # This version is only used for iterating/hot-reloading, it does not affect actual test execution.
+    # So we want to make sure we don't affect the cache key.
+    # The way we accomplish this is by feeding the time-based version file into a secondary action.
+    # The secondary action marks it as an unused_input so it gets excluded from the cache key.
+    # It also emits a symlink to the real on-disk version file (sandbox escape) so the second action is cacheable.
+    # This probably won't work with RBE, but is fixable by generating a constant version file in that case.
+
+    raw_version_file = ctx.actions.declare_file(ctx.label.name + ".raw_version")
+
     ctx.actions.run_shell(
         inputs = inputs,
         tools = [],  # Ensure inputs in the host configuration are not treated specially.
-        outputs = [output],
+        outputs = [raw_version_file],
         command = "/bin/date > {}".format(
-            output.path,
+            raw_version_file.path,
         ),
         mnemonic = "SvcVersionFile",
         # disable remote cache and sandbox, since the output is not stable given the inputs
         # additionally, running this action in the sandbox is way too expensive
         execution_requirements = {"local": "1"},
     )
+
+    version_file = ctx.actions.declare_symlink(ctx.label.name + ".version")
+    unused_inputs_file = ctx.actions.declare_file(ctx.label.name + ".version_file_unused_inputs")
+
+    ctx.actions.run(
+        inputs = [raw_version_file],
+        unused_inputs_list = unused_inputs_file,
+        outputs = [version_file, unused_inputs_file],
+        executable = ctx.executable._prepare_version_file,
+        arguments = [raw_version_file.path, version_file.path, unused_inputs_file.path],
+    )
+
+    return version_file
