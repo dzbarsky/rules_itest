@@ -253,7 +253,12 @@ func readVersionedServiceSpecs(
 	ports := svclib.Ports{}
 	versionedServiceSpecs := make(map[string]svclib.VersionedServiceSpec, len(serviceSpecs))
 	for label, serviceSpec := range serviceSpecs {
-		version, err := os.ReadFile(serviceSpec.VersionFile)
+		versionFile, err := os.Readlink(serviceSpec.VersionFile)
+		if err != nil {
+			return nil, err
+		}
+
+		version, err := os.ReadFile(versionFile)
 		if err != nil {
 			return nil, err
 		}

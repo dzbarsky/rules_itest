@@ -1,0 +1,14 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "prepare_version_file_lib",
+    srcs = ["main.go"],
+    importpath = "rules_itest/cmd/prepare_version_file",
+    visibility = ["//visibility:private"],
+)
+
+go_binary(
+    name = "prepare_version_file",
+    embed = [":prepare_version_file_lib"],
+    visibility = ["//visibility:public"],
+)
