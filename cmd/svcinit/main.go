@@ -34,6 +34,7 @@ func main() {
 
 	serviceSpecsPath := flags.String("svc.specs-path", "", "File defining which services to run")
 	allowSvcctl := flags.Bool("svc.allow-svcctl", false, "If true, spawns a server to handle svcctl commands")
+	enableHotReload := flags.Bool("svc.enable-hot-reload", false, "If true, hot-reload at a per-service granularity")
 	_ = allowSvcctl
 
 	shouldHotReload := os.Getenv("IBAZEL_NOTIFY_CHANGES") == "y"
@@ -216,6 +217,20 @@ func main() {
 			break
 		}
 
+		if shouldHotReload && !*enableHotReload {
+			fmt.Println()
+			fmt.Println()
+			fmt.Println("###################################################################################")
+			fmt.Println("  Detected that you are running under ibazel, but do not have hot-reload enabled. ")
+			fmt.Println("  In this configuration, services will not be restarted when their code changes.  ")
+			fmt.Println("  If this was unintentional, you can retry with hot-reload enabled:               ")
+			fmt.Println("                                                                                  ")
+			fmt.Printf("  `bazel run --@rules_itest//:enable_hot_reload %s` \n", testLabel)
+			fmt.Println("###################################################################################")
+			fmt.Println()
+			fmt.Println()
+		}
+
 		select {
 		case <-ctx.Done():
 			log.Println("Shutting down services.")
@@ -224,6 +239,7 @@ func main() {
 			log.Println("Cleaning up.")
 			return
 		case <-interactiveCh:
+			log.Println("Reloading...")
 		}
 
 		// Restart any services as needed.
@@ -253,14 +269,16 @@ func readVersionedServiceSpecs(
 	ports := svclib.Ports{}
 	versionedServiceSpecs := make(map[string]svclib.VersionedServiceSpec, len(serviceSpecs))
 	for label, serviceSpec := range serviceSpecs {
-		version, err := os.ReadFile(serviceSpec.VersionFile)
-		if err != nil {
-			return nil, err
-		}
-
 		s := svclib.VersionedServiceSpec{
 			ServiceSpec: serviceSpec,
-			Version:     string(version),
+		}
+
+		if serviceSpec.VersionFile != "" {
+			version, err := os.ReadFile(serviceSpec.VersionFile)
+			if err != nil {
+				return nil, err
+			}
+			s.Version = string(version)
 		}
 
 		s.Color = logger.Colorize(s.Label)

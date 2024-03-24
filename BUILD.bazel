@@ -1,9 +1,16 @@
 load("@bazel_gazelle//:def.bzl", "gazelle")
+load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 
 gazelle(name = "gazelle")
 
 cc_binary(
     name = "exit0",
     srcs = ["exit0.c"],
+    visibility = ["//visibility:public"],
+)
+
+bool_flag(
+    name = "enable_hot_reload",
+    build_setting_default = False,
     visibility = ["//visibility:public"],
 )

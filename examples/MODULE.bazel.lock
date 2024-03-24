@@ -14,7 +14,7 @@
   },
   "localOverrideHashes": {
     "bazel_tools": "9dbae64ab8e0ee8370b9cfa4611bd90e0c151baffe4a67d50cb78d7e57b2da98",
-    "rules_itest": "86a375b6775f5dad88f1eeb495214bb4773993d97bcbfdd40322440324fd978f"
+    "rules_itest": "36ee707a3aac4a076577fe86cd09350dff057fbc2905240b48606e2d0593b420"
   },
   "moduleDepGraph": {
     "<root>": {
@@ -252,6 +252,7 @@
       "deps": {
         "bazel_tools": "bazel_tools@_",
         "local_config_platform": "local_config_platform@_",
+        "bazel_skylib": "bazel_skylib@1.5.0",
         "io_bazel_rules_go": "rules_go@0.44.0",
         "bazel_gazelle": "gazelle@0.34.0"
       }
@@ -969,6 +970,28 @@
         "attributes": {"name":"--apple_support~1.5.0","urls":["--https://github.com/bazelbuild/apple_support/releases/download/1.5.0/apple_support.1.5.0.tar.gz"],"integrity":"--sha256-miM41vja0yRPgj8txghKA+TQ+7J8qJLclw5okNW0gYQ=","strip_prefix":"--","remote_patches":{},"remote_patch_strip":0}
       }
     },
+    "bazel_skylib@1.5.0": {
+      "name": "bazel_skylib",
+      "version": "1.5.0",
+      "key": "bazel_skylib@1.5.0",
+      "repoName": "bazel_skylib",
+      "executionPlatformsToRegister": [],
+      "toolchainsToRegister": [
+        "//toolchains/unittest:cmd_toolchain",
+        "//toolchains/unittest:bash_toolchain"
+      ],
+      "extensionUsages": [],
+      "deps": {
+        "bazel_tools": "bazel_tools@_",
+        "local_config_platform": "local_config_platform@_",
+        "platforms": "platforms@0.0.8"
+      },
+      "repoSpec": {
+        "bzlFile": "@bazel_tools//tools/build_defs/repo:http.bzl",
+        "ruleClassName": "http_archive",
+        "attributes": {"name":"--bazel_skylib~1.5.0","urls":["--https://github.com/bazelbuild/bazel-skylib/releases/download/1.5.0/bazel-skylib-1.5.0.tar.gz"],"integrity":"--sha256-zVWgYudjuTSZIfD124w5MyiNyLpPdt2UFqrGis7jy5Q=","strip_prefix":"--","remote_patches":{},"remote_patch_strip":0}
+      }
+    },
     "bazel_features@1.1.1": {
       "name": "bazel_features",
       "version": "1.1.1",
@@ -1004,28 +1027,6 @@
         "bzlFile": "@bazel_tools//tools/build_defs/repo:http.bzl",
         "ruleClassName": "http_archive",
         "attributes": {"name":"--bazel_features~1.1.1","urls":["--https://github.com/bazel-contrib/bazel_features/releases/download/v1.1.1/bazel_features-v1.1.1.tar.gz"],"integrity":"--sha256-YsJuQn5cvHUQJERpJ2IuOYqdzfMsZDJSOIFXCdEcEag=","strip_prefix":"--bazel_features-1.1.1","remote_patches":{"--https://bcr.bazel.build/modules/bazel_features/1.1.1/patches/module_dot_bazel_version.patch":"--sha256-+56MAEsc7bYN/Pzhn252ZQUxiRzZg9bynXj1qpsmCYs="},"remote_patch_strip":1}
-      }
-    },
-    "bazel_skylib@1.5.0": {
-      "name": "bazel_skylib",
-      "version": "1.5.0",
-      "key": "bazel_skylib@1.5.0",
-      "repoName": "bazel_skylib",
-      "executionPlatformsToRegister": [],
-      "toolchainsToRegister": [
-        "//toolchains/unittest:cmd_toolchain",
-        "//toolchains/unittest:bash_toolchain"
-      ],
-      "extensionUsages": [],
-      "deps": {
-        "bazel_tools": "bazel_tools@_",
-        "local_config_platform": "local_config_platform@_",
-        "platforms": "platforms@0.0.8"
-      },
-      "repoSpec": {
-        "bzlFile": "@bazel_tools//tools/build_defs/repo:http.bzl",
-        "ruleClassName": "http_archive",
-        "attributes": {"name":"--bazel_skylib~1.5.0","urls":["--https://github.com/bazelbuild/bazel-skylib/releases/download/1.5.0/bazel-skylib-1.5.0.tar.gz"],"integrity":"--sha256-zVWgYudjuTSZIfD124w5MyiNyLpPdt2UFqrGis7jy5Q=","strip_prefix":"--","remote_patches":{},"remote_patch_strip":0}
       }
     },
     "stardoc@0.5.4": {
@@ -1401,6 +1402,20 @@
             "bzlFile": "@@bazel_tools//tools/sh:sh_configure.bzl",
             "ruleClassName": "sh_config",
             "attributes": {"name":"--bazel_tools~sh_configure_extension~local_config_sh"}
+          }
+        }
+      }
+    },
+    "@bazel_tools//tools/test:extensions.bzl%remote_coverage_tools_extension": {
+      "general": {
+        "bzlTransitiveDigest": "PEh3vETU0xQzauyboFj1AYs9nvzf23oQ3vbV/5bFnE4=",
+        "accumulatedFileDigests": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "remote_coverage_tools": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_archive",
+            "attributes": {"name":"--bazel_tools~remote_coverage_tools_extension~remote_coverage_tools","sha256":"--7006375f6756819b7013ca875eab70a541cf7d89142d9c511ed78ea4fefa38af","urls":["--https://mirror.bazel.build/bazel_coverage_output_generator/releases/coverage_output_generator-v2.6.zip"]}
           }
         }
       }

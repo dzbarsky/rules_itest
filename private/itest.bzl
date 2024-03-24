@@ -1,4 +1,5 @@
 """ Rules for running services in integration tests. """
+load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 
 ServiceGroupInfo = provider(
     doc = "Info about a service group",
@@ -30,6 +31,9 @@ _svcinit_attrs = {
         executable = True,
         cfg = "target",
     ),
+    "_enable_hot_reload": attr.label(
+        default = "//:enable_hot_reload",
+    )
 }
 
 _itest_binary_attrs = {
@@ -40,17 +44,14 @@ _itest_binary_attrs = {
 } | _svcinit_attrs
 
 def _itest_binary_impl(ctx, extra_service_spec_kwargs, extra_exe_runfiles = []):
-    version_file = ctx.actions.declare_file(ctx.label.name + ".version")
-
     exe_runfiles = [ctx.attr.exe.default_runfiles] + extra_exe_runfiles
 
     version_file_deps = ctx.files.data + ctx.files.exe
     version_file_deps_trans = [runfiles.files for runfiles in exe_runfiles]
 
-    _create_version_file(
+    version_file = _create_version_file(
         ctx,
         depset(direct = version_file_deps, transitive = version_file_deps_trans),
-        output = version_file,
     )
 
     args = [
@@ -63,13 +64,15 @@ def _itest_binary_impl(ctx, extra_service_spec_kwargs, extra_exe_runfiles = []):
         for (var, val) in ctx.attr.env.items()
     }
 
+    if version_file:
+        extra_service_spec_kwargs["version_file"] = version_file.short_path
+
     service = struct(
         label = str(ctx.label),
         exe = ctx.executable.exe.short_path,
         args = args,
         env = env,
         deps = [str(dep.label) for dep in ctx.attr.deps],
-        version_file = version_file.short_path,
         **extra_service_spec_kwargs
     )
 
@@ -78,7 +81,11 @@ def _itest_binary_impl(ctx, extra_service_spec_kwargs, extra_exe_runfiles = []):
 
     service_specs_file = _create_svcinit_actions(ctx, services)
 
-    runfiles = ctx.runfiles(ctx.files.data + [service_specs_file, version_file])
+    direct_runfiles = ctx.files.data + [service_specs_file]
+    if version_file:
+        direct_runfiles.append(version_file)
+
+    runfiles = ctx.runfiles(direct_runfiles)
     runfiles = runfiles.merge_all([
         service.default_runfiles
         for service in ctx.attr.deps
@@ -103,10 +110,7 @@ def _itest_service_impl(ctx):
 
     if ctx.attr.health_check:
         extra_service_spec_kwargs["health_check"] = ctx.executable.health_check.short_path
-        extra_exe_runfiles.extend([
-            ctx.attr.health_check.default_runfiles,
-            ctx.attr.health_check.data_runfiles,
-        ])
+        extra_exe_runfiles.append(ctx.attr.health_check.default_runfiles)
 
     return _itest_binary_impl(ctx, extra_service_spec_kwargs, extra_exe_runfiles)
 
@@ -178,9 +182,10 @@ def _create_svcinit_actions(ctx, services, extra_svcinit_args = ""):
 
     ctx.actions.write(
         output = ctx.outputs.executable,
-        content = 'exec {svcinit_path} -svc.specs-path={service_specs_path} {extra_svcinit_args} "$@"'.format(
+        content = 'exec {svcinit_path} -svc.specs-path={service_specs_path} -svc.enable-hot-reload={enable_hot_reload} {extra_svcinit_args} "$@"'.format(
             svcinit_path = ctx.executable._svcinit.short_path,
             service_specs_path = service_specs_file.short_path,
+            enable_hot_reload = ctx.attr._enable_hot_reload[BuildSettingInfo].value,
             extra_svcinit_args = extra_svcinit_args,
         ),
     )
@@ -221,7 +226,12 @@ service_test = rule(
     test = True,
 )
 
-def _create_version_file(ctx, inputs, output):
+def _create_version_file(ctx, inputs):
+    if not ctx.attr._enable_hot_reload[BuildSettingInfo].value:
+        return None
+
+    output = ctx.actions.declare_file(ctx.label.name + ".version")
+
     ctx.actions.run_shell(
         inputs = inputs,
         tools = [],  # Ensure inputs in the host configuration are not treated specially.
@@ -234,3 +244,5 @@ def _create_version_file(ctx, inputs, output):
         # additionally, running this action in the sandbox is way too expensive
         execution_requirements = {"local": "1"},
     )
+
+    return output
