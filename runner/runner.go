@@ -159,6 +159,10 @@ func prepareServiceInstance(ctx context.Context, s svclib.VersionedServiceSpec) 
 	cmd.Stdout = logger.New(s.Label+"> ", s.Color, os.Stdout)
 	cmd.Stderr = logger.New(s.Label+"> ", s.Color, os.Stderr)
 
+	// Even if a child process exits, Wait will block until the I/O pipes are closed.
+	// They may have been forwarded to an orphaned child, so we disable that behavior to unblock exit.
+	cmd.WaitDelay = 1
+
 	instance := &ServiceInstance{
 		VersionedServiceSpec: s,
 		Cmd:                  cmd,

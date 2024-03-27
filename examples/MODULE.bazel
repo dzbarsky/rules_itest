@@ -30,3 +30,5 @@ maven.install(
     lock_file = "//:maven_install.json",
 )
 use_repo(maven, "maven", "unpinned_maven")
+
+bazel_dep(name = "aspect_rules_js", version = "1.39.0")

@@ -1,0 +1,15 @@
+load("@rules_itest//:itest.bzl", "itest_service")
+load("@aspect_rules_js//js:defs.bzl", "js_binary")
+
+js_binary(
+    name = "server",
+    entry_point = "main.mjs",
+)
+
+itest_service(
+    name = "service",
+    args = ["$${PORT}"],
+    autoassign_port = True,
+    exe = ":server",
+    http_health_check_address = "http://localhost:$${PORT}",
+)

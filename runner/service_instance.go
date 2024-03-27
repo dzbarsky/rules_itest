@@ -45,9 +45,10 @@ func (s *ServiceInstance) WaitUntilHealthy(ctx context.Context) error {
 		s.startDuration = time.Since(s.startTime)
 	}()
 
+	coloredLabel := colorize(s.VersionedServiceSpec)
 	if s.Type == "task" {
 		err := s.Wait()
-		log.Printf("%s completed.\n", colorize(s.VersionedServiceSpec))
+		log.Printf("%s completed.\n", coloredLabel)
 		return err
 	}
 
@@ -62,13 +63,16 @@ func (s *ServiceInstance) WaitUntilHealthy(ctx context.Context) error {
 			return err
 		}
 
-		log.Printf("Healthchecking %s (pid %d)\n", colorize(s.VersionedServiceSpec), s.Process.Pid)
+		log.Printf("Healthchecking %s (pid %d)\n", coloredLabel, s.Process.Pid)
 
 		if s.HttpHealthCheckAddress != "" {
 			var resp *http.Response
 			resp, err = http.DefaultClient.Get(s.HttpHealthCheckAddress)
 			if resp != nil {
 				defer resp.Body.Close()
+				if resp.StatusCode != http.StatusOK {
+					err = fmt.Errorf("healthcheck for %s failed: %v", coloredLabel, resp)
+				}
 			}
 
 		} else if s.HealthCheck != "" {
@@ -79,7 +83,7 @@ func (s *ServiceInstance) WaitUntilHealthy(ctx context.Context) error {
 		}
 
 		if err == nil {
-			log.Printf("%s healthy!\n", colorize(s.VersionedServiceSpec))
+			log.Printf("%s healthy!\n", coloredLabel)
 			break
 		}
 
