@@ -10,7 +10,7 @@ cc_binary(
 )
 
 bool_flag(
-    name = "enable_hot_reload",
+    name = "enable_per_service_reload",
     build_setting_default = False,
     visibility = ["//visibility:public"],
 )

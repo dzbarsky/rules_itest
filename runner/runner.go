@@ -23,13 +23,16 @@ type runner struct {
 	serviceInstances map[string]*ServiceInstance
 }
 
-func New(ctx context.Context, serviceSpecs ServiceSpecs) *runner {
+func New(ctx context.Context, serviceSpecs ServiceSpecs) (*runner, error) {
 	r := &runner{
 		ctx:              ctx,
 		serviceInstances: map[string]*ServiceInstance{},
 	}
-	r.UpdateSpecs(serviceSpecs)
-	return r
+	err := r.UpdateSpecs(serviceSpecs, nil)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
 }
 
 func (r *runner) StartAll() ([]topological.Task, error) {
@@ -60,14 +63,15 @@ func (r *runner) GetStartDurations() map[string]time.Duration {
 }
 
 type updateActions struct {
-	toStopLabels  []string
-	toStartLabels []string
+	toStopLabels   []string
+	toStartLabels  []string
+	toReloadLabels []string
 }
 
 func computeUpdateActions(currentServices, newServices ServiceSpecs) updateActions {
 	actions := updateActions{}
 
-	// Check if existing services need a restart or a shutdown.
+	// Check if existing services need a reload, a restart, or a shutdown.
 	for label, service := range currentServices {
 		newService, ok := newServices[label]
 		if !ok {
@@ -76,11 +80,18 @@ func computeUpdateActions(currentServices, newServices ServiceSpecs) updateActio
 			continue
 		}
 
-		// TODO(zbarsky): probably not needed in case service deps are changing
+		// We technically don't need a restart if the change is the list of deps.
+		// But that should not be a common use case, so it's not worth the complexity.
 		if !reflect.DeepEqual(service, newService) {
 			fmt.Println(label + " definition or code has changed, restarting...")
-			actions.toStopLabels = append(actions.toStopLabels, label)
-			actions.toStartLabels = append(actions.toStartLabels, label)
+			if service.HotReloadable && reflect.DeepEqual(service.ServiceSpec, newService.ServiceSpec) {
+				// The only difference is the Version. Trust the service that
+				// it prefers to receive the ibazel reload command.
+				actions.toReloadLabels = append(actions.toReloadLabels, label)
+			} else {
+				actions.toStopLabels = append(actions.toStopLabels, label)
+				actions.toStartLabels = append(actions.toStartLabels, label)
+			}
 			continue
 		}
 	}
@@ -95,7 +106,7 @@ func computeUpdateActions(currentServices, newServices ServiceSpecs) updateActio
 	return actions
 }
 
-func (r *runner) UpdateSpecs(serviceSpecs ServiceSpecs) {
+func (r *runner) UpdateSpecs(serviceSpecs ServiceSpecs, ibazelCmd []byte) error {
 	updateActions := computeUpdateActions(r.serviceSpecs, serviceSpecs)
 
 	for _, label := range updateActions.toStopLabels {
@@ -105,17 +116,38 @@ func (r *runner) UpdateSpecs(serviceSpecs ServiceSpecs) {
 	}
 
 	for _, label := range updateActions.toStartLabels {
-		r.serviceInstances[label] = prepareServiceInstance(r.ctx, serviceSpecs[label])
+		var err error
+		r.serviceInstances[label], err = prepareServiceInstance(r.ctx, serviceSpecs[label])
+		if err != nil {
+			return err
+		}
 	}
+
+	for _, label := range updateActions.toReloadLabels {
+		_, err := r.serviceInstances[label].Stdin.Write(ibazelCmd)
+		if err != nil {
+			return err
+		}
+	}
+
 	r.serviceSpecs = serviceSpecs
+	return nil
 }
 
-func (r *runner) UpdateSpecsAndRestart(serviceSpecs ServiceSpecs) ([]topological.Task, error) {
-	r.UpdateSpecs(serviceSpecs)
+func (r *runner) UpdateSpecsAndRestart(
+	serviceSpecs ServiceSpecs,
+	ibazelCmd []byte,
+) (
+	[]topological.Task, error,
+) {
+	err := r.UpdateSpecs(serviceSpecs, ibazelCmd)
+	if err != nil {
+		return nil, err
+	}
 	return r.StartAll()
 }
 
-func prepareServiceInstance(ctx context.Context, s svclib.VersionedServiceSpec) *ServiceInstance {
+func prepareServiceInstance(ctx context.Context, s svclib.VersionedServiceSpec) (*ServiceInstance, error) {
 	cmd := exec.CommandContext(ctx, s.Exe, s.Args...)
 	// Note, this leaks the caller's env into the service, so it's not hermetic.
 	// For `bazel test`, Bazel is already sanitizing the env, so it's fine.
@@ -127,12 +159,21 @@ func prepareServiceInstance(ctx context.Context, s svclib.VersionedServiceSpec) 
 	cmd.Stdout = logger.New(s.Label+"> ", s.Color, os.Stdout)
 	cmd.Stderr = logger.New(s.Label+"> ", s.Color, os.Stderr)
 
-	return &ServiceInstance{
+	instance := &ServiceInstance{
 		VersionedServiceSpec: s,
 		Cmd:                  cmd,
 
 		startErrFn: sync.OnceValue(cmd.Start),
 	}
+
+	if s.HotReloadable {
+		stdin, err := cmd.StdinPipe()
+		if err != nil {
+			return nil, err
+		}
+		instance.Stdin = stdin
+	}
+	return instance, nil
 }
 
 func stopInstance(serviceInstance *ServiceInstance) {

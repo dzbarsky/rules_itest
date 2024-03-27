@@ -31,8 +31,8 @@ _svcinit_attrs = {
         executable = True,
         cfg = "target",
     ),
-    "_enable_hot_reload": attr.label(
-        default = "//:enable_hot_reload",
+    "_enable_per_service_reload": attr.label(
+        default = "//:enable_per_service_reload",
     )
 }
 
@@ -105,6 +105,7 @@ def _itest_service_impl(ctx):
         "type": "service",
         "http_health_check_address": ctx.attr.http_health_check_address,
         "autoassign_port": ctx.attr.autoassign_port,
+        "hot_reloadable": ctx.attr.hot_reloadable,
     }
     extra_exe_runfiles = []
 
@@ -119,6 +120,7 @@ _itest_service_attrs = _itest_binary_attrs | {
     # Note, autoassigning a port is a little racy. If you can stick to hardcoded ports and network namespace, you should prefer that.
     "autoassign_port": attr.bool(),
     "health_check": attr.label(cfg = "target", mandatory = False, executable = True),
+    "hot_reloadable": attr.bool(),
 }
 
 itest_service = rule(
@@ -182,10 +184,10 @@ def _create_svcinit_actions(ctx, services, extra_svcinit_args = ""):
 
     ctx.actions.write(
         output = ctx.outputs.executable,
-        content = 'exec {svcinit_path} -svc.specs-path={service_specs_path} -svc.enable-hot-reload={enable_hot_reload} {extra_svcinit_args} "$@"'.format(
+        content = 'exec {svcinit_path} -svc.specs-path={service_specs_path} -svc.enable-hot-reload={enable_per_service_reload} {extra_svcinit_args} "$@"'.format(
             svcinit_path = ctx.executable._svcinit.short_path,
             service_specs_path = service_specs_file.short_path,
-            enable_hot_reload = ctx.attr._enable_hot_reload[BuildSettingInfo].value,
+            enable_per_service_reload = ctx.attr._enable_per_service_reload[BuildSettingInfo].value,
             extra_svcinit_args = extra_svcinit_args,
         ),
     )
@@ -227,7 +229,7 @@ service_test = rule(
 )
 
 def _create_version_file(ctx, inputs):
-    if not ctx.attr._enable_hot_reload[BuildSettingInfo].value:
+    if not ctx.attr._enable_per_service_reload[BuildSettingInfo].value:
         return None
 
     output = ctx.actions.declare_file(ctx.label.name + ".version")

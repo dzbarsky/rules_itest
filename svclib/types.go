@@ -13,6 +13,7 @@ type ServiceSpec struct {
 	VersionFile            string            `json:"version_file"`
 	Deps                   []string          `json:"deps"`
 	AutoassignPort         bool              `json:"autoassign_port"`
+	HotReloadable          bool              `json:"hot_reloadable"`
 }
 
 // Our internal representation.

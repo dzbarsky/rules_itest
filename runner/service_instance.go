@@ -3,6 +3,7 @@ package runner
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -21,6 +22,7 @@ func colorize(s svclib.VersionedServiceSpec) string {
 type ServiceInstance struct {
 	svclib.VersionedServiceSpec
 	*exec.Cmd
+	Stdin io.WriteCloser
 
 	startTime     time.Time
 	startDuration time.Duration

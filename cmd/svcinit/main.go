@@ -40,15 +40,13 @@ func main() {
 	shouldHotReload := os.Getenv("IBAZEL_NOTIFY_CHANGES") == "y"
 	testLabel := os.Getenv("TEST_TARGET")
 
-	interactiveCh := make(chan struct{}, 100)
+	interactiveCh := make(chan string, 100)
 	if shouldHotReload {
 		go func() {
 			scanner := bufio.NewScanner(os.Stdin)
 			for scanner.Scan() {
-				fmt.Println(scanner.Text())
-
 				// TODO: better notification setup needed
-				interactiveCh <- struct{}{}
+				interactiveCh <- scanner.Text()
 				//close(interactiveCh)
 				//interactiveCh = make(chan struct{})
 			}
@@ -115,7 +113,8 @@ func main() {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
 
-	r := runner.New(ctx, serviceSpecs)
+	r, err := runner.New(ctx, serviceSpecs)
+	must(err)
 
 	signalCh := make(chan os.Signal, 1)
 	signal.Notify(signalCh, syscall.SIGINT, syscall.SIGTERM)
@@ -220,13 +219,13 @@ func main() {
 		if shouldHotReload && !*enableHotReload {
 			fmt.Println()
 			fmt.Println()
-			fmt.Println("###################################################################################")
-			fmt.Println("  Detected that you are running under ibazel, but do not have hot-reload enabled. ")
-			fmt.Println("  In this configuration, services will not be restarted when their code changes.  ")
-			fmt.Println("  If this was unintentional, you can retry with hot-reload enabled:               ")
-			fmt.Println("                                                                                  ")
-			fmt.Printf("  `bazel run --@rules_itest//:enable_hot_reload %s` \n", testLabel)
-			fmt.Println("###################################################################################")
+			fmt.Println("###########################################################################################")
+			fmt.Println("  Detected that you are running under ibazel, but do not have per-service-reload enabled.")
+			fmt.Println("  In this configuration, services will not be restarted when their code changes.")
+			fmt.Println("  If this was unintentional, you can retry with per-service-reload enabled:")
+			fmt.Println("")
+			fmt.Printf("  `bazel run --@rules_itest//:enable_per_service_reload %s`\n", testLabel)
+			fmt.Println("###########################################################################################")
 			fmt.Println()
 			fmt.Println()
 		}
@@ -238,16 +237,16 @@ func main() {
 			must(err)
 			log.Println("Cleaning up.")
 			return
-		case <-interactiveCh:
-			log.Println("Reloading...")
+		case ibazelCmd := <-interactiveCh:
+			log.Println(ibazelCmd)
+
+			// Restart any services as needed.
+			serviceSpecs, err := readVersionedServiceSpecs(*serviceSpecsPath)
+			must(err)
+
+			criticalPath, err = r.UpdateSpecsAndRestart(serviceSpecs, []byte(ibazelCmd))
+			must(err)
 		}
-
-		// Restart any services as needed.
-		serviceSpecs, err := readVersionedServiceSpecs(*serviceSpecsPath)
-		must(err)
-
-		criticalPath, err = r.UpdateSpecsAndRestart(serviceSpecs)
-		must(err)
 	}
 }
 
