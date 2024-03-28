@@ -20,6 +20,15 @@ def _run_environment(ctx):
         "GET_ASSIGNED_PORT_BIN": ctx.file._get_assigned_port.short_path,
     })
 
+def _services_runfiles(ctx, services_attr_name = "services"):
+    return [
+        service.default_runfiles
+        for service in getattr(ctx.attr, services_attr_name)
+    ] + [
+        ctx.attr._svcinit.default_runfiles,
+        ctx.attr._get_assigned_port.default_runfiles,
+    ]
+
 _svcinit_attrs = {
     "_svcinit": attr.label(
         default = "//cmd/svcinit",
@@ -87,13 +96,7 @@ def _itest_binary_impl(ctx, extra_service_spec_kwargs, extra_exe_runfiles = []):
         direct_runfiles.append(version_file)
 
     runfiles = ctx.runfiles(direct_runfiles)
-    runfiles = runfiles.merge_all([
-        service.default_runfiles
-        for service in ctx.attr.deps
-    ] + [
-        ctx.attr._svcinit.default_runfiles,
-        ctx.attr._get_assigned_port.default_runfiles,
-    ] + exe_runfiles)
+    runfiles = runfiles.merge_all(_services_runfiles(ctx, "deps") + exe_runfiles)
 
     return [
         _run_environment(ctx),
@@ -145,13 +148,8 @@ def _itest_service_group_impl(ctx):
     services = _collect_services(ctx.attr.services)
     service_specs_file = _create_svcinit_actions(ctx, services)
 
-    runfiles = ctx.runfiles(ctx.files.data + [service_specs_file]).merge_all([
-        service.default_runfiles
-        for service in ctx.attr.services
-    ] + [
-        ctx.attr._svcinit.default_runfiles,
-        ctx.attr._get_assigned_port.default_runfiles,
-    ])
+    runfiles = ctx.runfiles(ctx.files.data + [service_specs_file])
+    runfiles = runfiles.merge_all(_services_runfiles(ctx))
 
     return [
         _run_environment(ctx),
@@ -204,12 +202,7 @@ def _service_test_impl(ctx):
     )
 
     runfiles = ctx.runfiles(ctx.files.data + [service_specs_file])
-    runfiles = runfiles.merge_all([
-        service.default_runfiles
-        for service in ctx.attr.services
-    ] + [
-        ctx.attr._svcinit.default_runfiles,
-        ctx.attr._get_assigned_port.default_runfiles,
+    runfiles = runfiles.merge_all(_services_runfiles(ctx) + [
         ctx.attr.test.default_runfiles,
     ])
 
