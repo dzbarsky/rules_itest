@@ -1,4 +1,5 @@
 """ Rules for running services in integration tests. """
+
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 
 ServiceGroupInfo = provider(
@@ -15,7 +16,7 @@ def _collect_services(deps):
     return services
 
 def _run_environment(ctx):
-    return RunEnvironmentInfo(environment={
+    return RunEnvironmentInfo(environment = {
         "GET_ASSIGNED_PORT_BIN": ctx.file._get_assigned_port.short_path,
     })
 
@@ -33,7 +34,7 @@ _svcinit_attrs = {
     ),
     "_enable_per_service_reload": attr.label(
         default = "//:enable_per_service_reload",
-    )
+    ),
 }
 
 _itest_binary_attrs = {
