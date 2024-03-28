@@ -17,7 +17,7 @@ def _collect_services(deps):
 
 def _run_environment(ctx):
     return RunEnvironmentInfo(environment = {
-        "GET_ASSIGNED_PORT_BIN": ctx.file._get_assigned_port.short_path,
+        "GET_ASSIGNED_PORT_BIN": ctx.executable._get_assigned_port.short_path,
     })
 
 def _services_runfiles(ctx, services_attr_name = "services"):
@@ -37,7 +37,6 @@ _svcinit_attrs = {
     ),
     "_get_assigned_port": attr.label(
         default = "//cmd/get_assigned_port",
-        allow_single_file = True,
         executable = True,
         cfg = "target",
     ),
