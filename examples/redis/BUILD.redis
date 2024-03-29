@@ -1,3 +1,8 @@
+not_windows = select({
+    "@platforms//os:windows": ["@platforms//:incompatible"],
+    "//conditions:default": [],
+})
+
 cc_library(
     name = "linenoise",
     srcs = glob([
@@ -70,6 +75,7 @@ cc_library(
         ":hiredis",
         ":lua",
     ],
+    target_compatible_with = not_windows,
 )
 
 cc_binary(
@@ -83,6 +89,7 @@ cc_binary(
     }),
     visibility = ["//visibility:public"],
     deps = [":redis_lib"],
+    target_compatible_with = not_windows,
 )
 
 cc_binary(
@@ -96,4 +103,5 @@ cc_binary(
         ":linenoise",
         ":redis_lib",
     ],
+    target_compatible_with = not_windows,
 )
