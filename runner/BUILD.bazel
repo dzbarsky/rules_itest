@@ -1,14 +1,14 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@rules_go//go:def.bzl", "go_library")
 
 go_library(
-    name = "runner_lib",
+    name = "runner",
     srcs = [
         "runner.go",
         "service_instance.go",
         "topo_starter.go",
     ],
     importpath = "rules_itest/runner",
-    visibility = ["//:__subpackages__"],
+    visibility = ["//visibility:public"],
     deps = [
         "//logger",
         "//runner/topological",

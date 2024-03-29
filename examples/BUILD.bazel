@@ -1,4 +1,4 @@
-load("@bazel_gazelle//:def.bzl", "gazelle")
+load("@gazelle//:def.bzl", "gazelle")
 load("@rules_itest//:itest.bzl", "itest_service", "itest_service_group")
 
 package(default_visibility = ["//visibility:public"])
@@ -41,13 +41,13 @@ itest_service_group(
 
 itest_service(
     name = "service_with_data",
-    autoassign_port = True,
     args = [
         "-port",
         "$${PORT}",
         "-file-to-open",
         "$(location :maven_install.json)",
     ],
+    autoassign_port = True,
     data = [":maven_install.json"],
     exe = "//go_service",
     http_health_check_address = "http://localhost:$${PORT}",

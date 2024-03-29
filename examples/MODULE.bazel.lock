@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 2,
-  "moduleFileHash": "0c47e1b8ca5fc24735abf829f92b949da1144211310fb0bc7f0adac0efdf28ff",
+  "moduleFileHash": "7eea41fc7006f8c8200140efa36812dc7ed33b852b9d5733c95464faff666798",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -14,7 +14,7 @@
   },
   "localOverrideHashes": {
     "bazel_tools": "9dbae64ab8e0ee8370b9cfa4611bd90e0c151baffe4a67d50cb78d7e57b2da98",
-    "rules_itest": "5cc5b273dfee2c34f5bb06fcb0b65cff2e7aefe8630aecf3199965bd3570ca65"
+    "rules_itest": "c5eaf1496381273517fc12f73a27d9175c26fdb46d7e961d9f00e4a91c27f561"
   },
   "moduleDepGraph": {
     "<root>": {
@@ -26,7 +26,7 @@
       "toolchainsToRegister": [],
       "extensionUsages": [
         {
-          "extensionBzlFile": "@bazel_gazelle//:extensions.bzl",
+          "extensionBzlFile": "@gazelle//:extensions.bzl",
           "extensionName": "go_deps",
           "usingModule": "<root>",
           "location": {
@@ -88,9 +88,9 @@
         "bazel_tools": "bazel_tools@_",
         "local_config_platform": "local_config_platform@_",
         "rules_itest": "rules_itest@_",
-        "io_bazel_rules_go": "rules_go@0.44.0",
+        "rules_go": "rules_go@0.44.0",
         "aspect_bazel_lib": "aspect_bazel_lib@2.4.2",
-        "bazel_gazelle": "gazelle@0.34.0",
+        "gazelle": "gazelle@0.34.0",
         "rules_jvm_external": "rules_jvm_external@_",
         "aspect_rules_js": "aspect_rules_js@1.39.0"
       }
@@ -244,7 +244,7 @@
     },
     "rules_itest@_": {
       "name": "rules_itest",
-      "version": "",
+      "version": "0.0.1",
       "key": "rules_itest@_",
       "repoName": "rules_itest",
       "executionPlatformsToRegister": [],
@@ -254,8 +254,8 @@
         "bazel_tools": "bazel_tools@_",
         "local_config_platform": "local_config_platform@_",
         "bazel_skylib": "bazel_skylib@1.5.0",
-        "io_bazel_rules_go": "rules_go@0.44.0",
-        "bazel_gazelle": "gazelle@0.34.0"
+        "rules_go": "rules_go@0.44.0",
+        "gazelle": "gazelle@0.34.0"
       }
     },
     "rules_go@0.44.0": {
@@ -1749,20 +1749,6 @@
         }
       }
     },
-    "@bazel_tools//tools/test:extensions.bzl%remote_coverage_tools_extension": {
-      "general": {
-        "bzlTransitiveDigest": "PEh3vETU0xQzauyboFj1AYs9nvzf23oQ3vbV/5bFnE4=",
-        "accumulatedFileDigests": {},
-        "envVariables": {},
-        "generatedRepoSpecs": {
-          "remote_coverage_tools": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_archive",
-            "attributes": {"name":"--bazel_tools~remote_coverage_tools_extension~remote_coverage_tools","sha256":"--7006375f6756819b7013ca875eab70a541cf7d89142d9c511ed78ea4fefa38af","urls":["--https://mirror.bazel.build/bazel_coverage_output_generator/releases/coverage_output_generator-v2.6.zip"]}
-          }
-        }
-      }
-    },
     "@gazelle~0.34.0//:extensions.bzl%go_deps": {
       "general": {
         "bzlTransitiveDigest": "bxCC2wkQKI2fVRS2z8qAkH7FpoBFV1H7+yyT3EXXdbU=",
@@ -1995,58 +1981,6 @@
       }
     },
     "@rules_go~0.44.0//go:extensions.bzl%go_sdk": {
-      "os:osx,arch:x86_64": {
-        "bzlTransitiveDigest": "hg9LICEltClXt/ww/rltIvOQNJ+QWfIG0W6rW7ClyJk=",
-        "accumulatedFileDigests": {},
-        "envVariables": {},
-        "generatedRepoSpecs": {
-          "io_bazel_rules_nogo": {
-            "bzlFile": "@@rules_go~0.44.0//go/private:nogo.bzl",
-            "ruleClassName": "go_register_nogo",
-            "attributes": {"name":"--rules_go~0.44.0~go_sdk~io_bazel_rules_nogo","nogo":"--@io_bazel_rules_go//:default_nogo","includes":["--@@//:__subpackages__"],"excludes":[]}
-          },
-          "rules_go__download_0_windows_arm64": {
-            "bzlFile": "@@rules_go~0.44.0//go/private:sdk.bzl",
-            "ruleClassName": "go_download_sdk_rule",
-            "attributes": {"name":"--rules_go~0.44.0~go_sdk~rules_go__download_0_windows_arm64","goos":"--","goarch":"--","sdks":{},"urls":["--https://dl.google.com/go/{}"],"version":"--1.21.1"}
-          },
-          "rules_go__download_0_linux_arm64": {
-            "bzlFile": "@@rules_go~0.44.0//go/private:sdk.bzl",
-            "ruleClassName": "go_download_sdk_rule",
-            "attributes": {"name":"--rules_go~0.44.0~go_sdk~rules_go__download_0_linux_arm64","goos":"--","goarch":"--","sdks":{},"urls":["--https://dl.google.com/go/{}"],"version":"--1.21.1"}
-          },
-          "go_default_sdk": {
-            "bzlFile": "@@rules_go~0.44.0//go/private:sdk.bzl",
-            "ruleClassName": "go_download_sdk_rule",
-            "attributes": {"name":"--rules_go~0.44.0~go_sdk~go_default_sdk","goos":"--","goarch":"--","sdks":{},"experiments":[],"patches":[],"patch_strip":0,"urls":["--https://dl.google.com/go/{}"],"version":"--1.21.1","strip_prefix":"--go"}
-          },
-          "rules_go__download_0_darwin_arm64": {
-            "bzlFile": "@@rules_go~0.44.0//go/private:sdk.bzl",
-            "ruleClassName": "go_download_sdk_rule",
-            "attributes": {"name":"--rules_go~0.44.0~go_sdk~rules_go__download_0_darwin_arm64","goos":"--","goarch":"--","sdks":{},"urls":["--https://dl.google.com/go/{}"],"version":"--1.21.1"}
-          },
-          "go_host_compatible_sdk_label": {
-            "bzlFile": "@@rules_go~0.44.0//go/private:extensions.bzl",
-            "ruleClassName": "host_compatible_toolchain",
-            "attributes": {"name":"--rules_go~0.44.0~go_sdk~go_host_compatible_sdk_label","toolchain":"--@go_default_sdk//:ROOT"}
-          },
-          "rules_go__download_0_linux_amd64": {
-            "bzlFile": "@@rules_go~0.44.0//go/private:sdk.bzl",
-            "ruleClassName": "go_download_sdk_rule",
-            "attributes": {"name":"--rules_go~0.44.0~go_sdk~rules_go__download_0_linux_amd64","goos":"--","goarch":"--","sdks":{},"urls":["--https://dl.google.com/go/{}"],"version":"--1.21.1"}
-          },
-          "go_toolchains": {
-            "bzlFile": "@@rules_go~0.44.0//go/private:sdk.bzl",
-            "ruleClassName": "go_multiple_toolchains",
-            "attributes": {"name":"--rules_go~0.44.0~go_sdk~go_toolchains","prefixes":["--_0000_go_default_sdk_","--_0001_rules_go__download_0_darwin_arm64_","--_0002_rules_go__download_0_linux_amd64_","--_0003_rules_go__download_0_linux_arm64_","--_0004_rules_go__download_0_windows_amd64_","--_0005_rules_go__download_0_windows_arm64_"],"geese":["--","--darwin","--linux","--linux","--windows","--windows"],"goarchs":["--","--arm64","--amd64","--arm64","--amd64","--arm64"],"sdk_repos":["--go_default_sdk","--rules_go__download_0_darwin_arm64","--rules_go__download_0_linux_amd64","--rules_go__download_0_linux_arm64","--rules_go__download_0_windows_amd64","--rules_go__download_0_windows_arm64"],"sdk_types":["--remote","--remote","--remote","--remote","--remote","--remote"],"sdk_versions":["--1.21.1","--1.21.1","--1.21.1","--1.21.1","--1.21.1","--1.21.1"]}
-          },
-          "rules_go__download_0_windows_amd64": {
-            "bzlFile": "@@rules_go~0.44.0//go/private:sdk.bzl",
-            "ruleClassName": "go_download_sdk_rule",
-            "attributes": {"name":"--rules_go~0.44.0~go_sdk~rules_go__download_0_windows_amd64","goos":"--","goarch":"--","sdks":{},"urls":["--https://dl.google.com/go/{}"],"version":"--1.21.1"}
-          }
-        }
-      },
       "os:osx,arch:aarch64": {
         "bzlTransitiveDigest": "hg9LICEltClXt/ww/rltIvOQNJ+QWfIG0W6rW7ClyJk=",
         "accumulatedFileDigests": {},
@@ -2566,7 +2500,7 @@
           "unpinned_maven": {
             "bzlFile": "@@rules_jvm_external~override//:coursier.bzl",
             "ruleClassName": "coursier_fetch",
-            "attributes": {"name":"--rules_jvm_external~override~maven~unpinned_maven","user_provided_name":"--maven","repositories":["--{ \"repo_url\": \"https://repo1.maven.org/maven2\" }"],"artifacts":["--{ \"group\": \"com.amazonaws\", \"artifact\": \"DynamoDBLocal\", \"version\": \"2.0.0\" }"],"fail_on_missing_checksum":true,"fetch_sources":true,"fetch_javadoc":false,"excluded_artifacts":[],"generate_compat_repositories":false,"version_conflict_policy":"--default","override_targets":{},"strict_visibility":false,"strict_visibility_value":["@@//visibility:private"],"maven_install_json":"@@//:maven_install.json","resolve_timeout":600,"jetify":false,"jetify_include_list":["--*"],"use_starlark_android_rules":false,"aar_import_bzl_label":"--@build_bazel_rules_android//android:rules.bzl","duplicate_version_warning":"--warn"}
+            "attributes": {"name":"--rules_jvm_external~override~maven~unpinned_maven","user_provided_name":"--maven","repositories":["--{ \"repo_url\": \"https://repo1.maven.org/maven2\" }"],"artifacts":["--{ \"group\": \"com.amazonaws\", \"artifact\": \"DynamoDBLocal\", \"version\": \"2.0.0\" }","--{ \"group\": \"com.google.code.findbugs\", \"artifact\": \"jsr305\", \"version\": \"3.0.2\" }","--{ \"group\": \"com.google.code.gson\", \"artifact\": \"gson\", \"version\": \"2.8.9\" }","--{ \"group\": \"com.google.errorprone\", \"artifact\": \"error_prone_annotations\", \"version\": \"2.3.2\" }","--{ \"group\": \"com.google.j2objc\", \"artifact\": \"j2objc-annotations\", \"version\": \"1.3\" }","--{ \"group\": \"com.google.guava\", \"artifact\": \"guava\", \"version\": \"31.1-jre\" }","--{ \"group\": \"com.google.guava\", \"artifact\": \"guava-testlib\", \"version\": \"31.1-jre\" }","--{ \"group\": \"com.google.truth\", \"artifact\": \"truth\", \"version\": \"1.1.2\" }","--{ \"group\": \"junit\", \"artifact\": \"junit\", \"version\": \"4.13.2\" }","--{ \"group\": \"org.mockito\", \"artifact\": \"mockito-core\", \"version\": \"4.3.1\" }"],"fail_on_missing_checksum":true,"fetch_sources":true,"fetch_javadoc":false,"excluded_artifacts":[],"generate_compat_repositories":false,"version_conflict_policy":"--default","override_targets":{},"strict_visibility":false,"strict_visibility_value":["@@//visibility:private"],"maven_install_json":"@@//:maven_install.json","resolve_timeout":600,"jetify":false,"jetify_include_list":["--*"],"use_starlark_android_rules":false,"aar_import_bzl_label":"--@build_bazel_rules_android//android:rules.bzl","duplicate_version_warning":"--warn"}
           },
           "software_amazon_awssdk_annotations_jar_sources_2_16_46": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
@@ -3391,7 +3325,7 @@
           "maven": {
             "bzlFile": "@@rules_jvm_external~override//:coursier.bzl",
             "ruleClassName": "pinned_coursier_fetch",
-            "attributes": {"name":"--rules_jvm_external~override~maven~maven","user_provided_name":"--maven","repositories":["--{ \"repo_url\": \"https://repo1.maven.org/maven2\" }"],"artifacts":["--{ \"group\": \"com.amazonaws\", \"artifact\": \"DynamoDBLocal\", \"version\": \"2.0.0\" }"],"fetch_sources":true,"fetch_javadoc":false,"generate_compat_repositories":false,"maven_install_json":"@@//:maven_install.json","override_targets":{},"strict_visibility":false,"strict_visibility_value":["@@//visibility:private"],"jetify":false,"jetify_include_list":["--*"],"additional_netrc_lines":[],"fail_if_repin_required":false,"use_starlark_android_rules":false,"aar_import_bzl_label":"--@build_bazel_rules_android//android:rules.bzl","duplicate_version_warning":"--warn"}
+            "attributes": {"name":"--rules_jvm_external~override~maven~maven","user_provided_name":"--maven","repositories":["--{ \"repo_url\": \"https://repo1.maven.org/maven2\" }"],"artifacts":["--{ \"group\": \"com.amazonaws\", \"artifact\": \"DynamoDBLocal\", \"version\": \"2.0.0\" }","--{ \"group\": \"com.google.code.findbugs\", \"artifact\": \"jsr305\", \"version\": \"3.0.2\" }","--{ \"group\": \"com.google.code.gson\", \"artifact\": \"gson\", \"version\": \"2.8.9\" }","--{ \"group\": \"com.google.errorprone\", \"artifact\": \"error_prone_annotations\", \"version\": \"2.3.2\" }","--{ \"group\": \"com.google.j2objc\", \"artifact\": \"j2objc-annotations\", \"version\": \"1.3\" }","--{ \"group\": \"com.google.guava\", \"artifact\": \"guava\", \"version\": \"31.1-jre\" }","--{ \"group\": \"com.google.guava\", \"artifact\": \"guava-testlib\", \"version\": \"31.1-jre\" }","--{ \"group\": \"com.google.truth\", \"artifact\": \"truth\", \"version\": \"1.1.2\" }","--{ \"group\": \"junit\", \"artifact\": \"junit\", \"version\": \"4.13.2\" }","--{ \"group\": \"org.mockito\", \"artifact\": \"mockito-core\", \"version\": \"4.3.1\" }"],"fetch_sources":true,"fetch_javadoc":false,"generate_compat_repositories":false,"maven_install_json":"@@//:maven_install.json","override_targets":{},"strict_visibility":false,"strict_visibility_value":["@@//visibility:private"],"jetify":false,"jetify_include_list":["--*"],"additional_netrc_lines":[],"fail_if_repin_required":false,"use_starlark_android_rules":false,"aar_import_bzl_label":"--@build_bazel_rules_android//android:rules.bzl","duplicate_version_warning":"--warn"}
           },
           "io_netty_netty_codec_http_4_1_63_Final": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
