@@ -1,0 +1,16 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - run: .github/workflows/build_release.sh
+      - uses: softprops/action-gh-release@v1
+        with:
+          files: ./rules_itest-*
