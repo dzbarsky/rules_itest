@@ -257,7 +257,7 @@ def _service_test_impl(ctx):
         extra_svcinit_args = " ".join(extra_svcinit_args),
     )
 
-    runfiles = ctx.runfiles(ctx.files.data + [service_specs_file])
+    runfiles = ctx.runfiles([service_specs_file])
     runfiles = runfiles.merge_all(_services_runfiles(ctx) + [
         ctx.attr.test.default_runfiles,
     ])
