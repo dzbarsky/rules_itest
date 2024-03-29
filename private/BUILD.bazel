@@ -1,0 +1,15 @@
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+
+exports_files(
+    ["itest.bzl"],
+    visibility = ["//docs:__pkg__"],
+)
+
+bzl_library(
+    name = "itest",
+    srcs = ["itest.bzl"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "@bazel_skylib//rules:common_settings",
+    ],
+)

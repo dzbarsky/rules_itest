@@ -1,8 +1,19 @@
-""" Rules for running services in integration tests. """
+"""
+# Rules for running services in integration tests.
+
+This ruleset supports [ibazel](https://github.com/bazelbuild/bazel-watcher) when using `bazel run`.
+As a UX optimization, the service manager is able to restart only the modified services, instead of all services,
+when it receives the reload notification from ibazel. This capability depends on a cache-busting input, so it is hidden
+behind an an extra CLI flag, like so:
+`ibazel run @rules_itest//:enable_per_service_reload //path/to:target`
+
+In addition, you can set the `hot_reloadable` attribute on an `itest_service`, in that case the service manager will
+forward the ibazel hot-reload notification over stdin instead of restarting the service.
+"""
 
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 
-ServiceGroupInfo = provider(
+_ServiceGroupInfo = provider(
     doc = "Info about a service group",
     fields = {
         "services": "Dict of services/tasks",
@@ -12,7 +23,7 @@ ServiceGroupInfo = provider(
 def _collect_services(deps):
     services = {}
     for dep in deps:
-        services |= dep[ServiceGroupInfo].services
+        services |= dep[_ServiceGroupInfo].services
     return services
 
 def _run_environment(ctx):
@@ -46,10 +57,20 @@ _svcinit_attrs = {
 }
 
 _itest_binary_attrs = {
-    "exe": attr.label(mandatory = True, executable = True, cfg = "target"),
-    "env": attr.string_dict(),
+    "exe": attr.label(
+        mandatory = True,
+        executable = True,
+        cfg = "target",
+        doc = "The binary target to run.",
+    ),
+    "env": attr.string_dict(
+        doc = "The service manager will merge these variables into the environment when spawning the underlying binary.",
+    ),
     "data": attr.label_list(allow_files = True),
-    "deps": attr.label_list(providers = [ServiceGroupInfo]),
+    "deps": attr.label_list(
+        providers = [_ServiceGroupInfo],
+        doc = "Services/tasks that must be started before this service/task can be started. Can be `itest_service`, `itest_task`, or `itest_service_group`.",
+    ),
 } | _svcinit_attrs
 
 def _itest_binary_impl(ctx, extra_service_spec_kwargs, extra_exe_runfiles = []):
@@ -100,7 +121,7 @@ def _itest_binary_impl(ctx, extra_service_spec_kwargs, extra_exe_runfiles = []):
     return [
         _run_environment(ctx),
         DefaultInfo(runfiles = runfiles),
-        ServiceGroupInfo(services = services),
+        _ServiceGroupInfo(services = services),
     ]
 
 def _itest_service_impl(ctx):
@@ -119,17 +140,43 @@ def _itest_service_impl(ctx):
     return _itest_binary_impl(ctx, extra_service_spec_kwargs, extra_exe_runfiles)
 
 _itest_service_attrs = _itest_binary_attrs | {
-    "http_health_check_address": attr.string(),
     # Note, autoassigning a port is a little racy. If you can stick to hardcoded ports and network namespace, you should prefer that.
-    "autoassign_port": attr.bool(),
-    "health_check": attr.label(cfg = "target", mandatory = False, executable = True),
-    "hot_reloadable": attr.bool(),
+    "autoassign_port": attr.bool(
+        doc = """If true, the service manager will pick a free port and assign it to the service.
+        The port can be accessed by using `$${PORT}` in the service's args.
+        
+        The port is also acessible in the service-port mapping, which is a JSON string -> int map in the env var `ASSIGNED_PORTS`.
+        For example, a port can be retrieved with the following JS code:
+        `JSON.parse(process.env["ASSIGNED_PORTS"])["@@//label/for:service"]`.
+        
+        Alternately, the env will also contain the location of a binary that can return the port, for contexts without a readily-accessible JSON parser.
+        For example, the following Bash command: 
+        `PORT=$($GET_ASSIGNED_PORT_BIN @@//label/for:service)`""",
+    ),
+    "health_check": attr.label(
+        cfg = "target",
+        mandatory = False,
+        executable = True,
+        doc = """If set, the service manager will execute this binary to check if the service came up in a healthy state.
+        This check will be retried until it exits with a 0 exit code. When used in conjunction with autoassigned ports, use
+        one of the methods described in `autoassign_port` to locate the service.""",
+    ),
+    "hot_reloadable": attr.bool(
+        doc = """If set to True, the service manager will propagate ibazel's reload notificaiton over stdin instead of restarting the service.
+        See the ruleset docstring for more info on using ibazel""",
+    ),
+    "http_health_check_address": attr.string(
+        doc = """If set, the service manager will send an HTTP request to this address to check if the service came up in a healthy state.
+        This check will be retried until it returns a 200 HTTP code. When used in conjunction with autoassigned ports, `$${PORT}` can be used in the address.
+        Example: `http_health_check_address = "http://localhost:$${PORT}",`""",
+    ),
 }
 
 itest_service = rule(
     implementation = _itest_service_impl,
     attrs = _itest_service_attrs,
     executable = True,
+    doc = "An itest_service is a binary that is intended to run for the duration of the integration test. Examples include databases, HTTP/RPC servers, queue consumers, external service mocks, etc.",
 )
 
 def _itest_task_impl(ctx):
@@ -141,6 +188,8 @@ itest_task = rule(
     implementation = _itest_task_impl,
     attrs = _itest_binary_attrs,
     executable = True,
+    doc = """A task is a one-shot (not long-running binary) that is intended to be executed as part of the itest scenario creation.
+Examples include: filesystem setup, dynamic config file generation (especially if it depends on ports), DB migrations or seed data creation""",
 )
 
 def _itest_service_group_impl(ctx):
@@ -153,19 +202,27 @@ def _itest_service_group_impl(ctx):
     return [
         _run_environment(ctx),
         DefaultInfo(runfiles = runfiles),
-        ServiceGroupInfo(services = services),
+        _ServiceGroupInfo(services = services),
     ]
 
 _itest_service_group_attrs = {
-    "services": attr.label_list(providers = [ServiceGroupInfo]),
-    "data": attr.label_list(allow_files = True),
-    "env": attr.string_dict(),
+    "services": attr.label_list(
+        providers = [_ServiceGroupInfo],
+        doc = "Services/tasks that comprise this group. Can be `itest_service`, `itest_task`, or `itest_service_group`.",
+    ),
 } | _svcinit_attrs
 
 itest_service_group = rule(
     implementation = _itest_service_group_impl,
     attrs = _itest_service_group_attrs,
     executable = True,
+    doc = """A service group is a collection of services/tasks.
+
+It serves as a convenient way for a downstream target to depend on multiple services with a single label, without
+forcing the services within the group to define a specific startup ordering with their `deps`.
+
+It is also useful to bring up multiple services with a single `bazel run` command, which is useful for creating
+dev environments.""",
 )
 
 def _create_svcinit_actions(ctx, services, extra_svcinit_args = ""):
@@ -212,13 +269,40 @@ def _service_test_impl(ctx):
     ]
 
 _service_test_attrs = {
-    "test": attr.label(cfg = "target", mandatory = False, executable = True),
+    "test": attr.label(
+        cfg = "target",
+        executable = True,
+        doc = "The underlying test target to execute once the services have been brought up and healthchecked.",
+    ),
 } | _itest_service_group_attrs
 
 service_test = rule(
     implementation = _service_test_impl,
     attrs = _service_test_attrs,
     test = True,
+    doc = """Brings up a set of services/tasks and runs a test target against them.
+    
+This can be used to customize which services a particular test needs while being able to bring them up in an easy and consistent way.
+
+Example usage:
+```
+go_test(
+    name = "_example_test_no_services",
+    srcs = [..],
+    tags = ["manual"],
+)
+
+service_test(
+    name = "example_test",
+    test = ":_example_test_no_services",
+    services = [
+        "//services/mysql",
+        ...
+    ],
+)
+```
+
+Typically this would be wrapped into a macro.""",
 )
 
 def _create_version_file(ctx, inputs):
