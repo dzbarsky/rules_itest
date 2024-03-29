@@ -2,6 +2,11 @@ load("@rules_go//go:def.bzl", "go_binary", "go_library")
 load("@rules_java//java:defs.bzl", "java_binary")
 load("@rules_itest//:itest.bzl", "itest_service")
 
+not_windows = select({
+    "@platforms//os:windows": ["@platforms//:incompatible"],
+    "//conditions:default": [],
+})
+
 java_binary(
     name = "bin",
     # TODO(zbarsky): Ideally the maven rules would generate these data deps, but
@@ -19,6 +24,7 @@ java_binary(
     runtime_deps = [
         "@maven//:com_amazonaws_DynamoDBLocal",
     ],
+    target_compatible_with = not_windows,
 )
 
 itest_service(
@@ -32,6 +38,7 @@ itest_service(
     autoassign_port = True,
     exe = ":bin",
     health_check = ":health_check",
+    target_compatible_with = not_windows,
 )
 
 go_library(
