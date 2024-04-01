@@ -1,15 +1,9 @@
 load("@rules_itest//:itest.bzl", "itest_service")
 
-not_windows = select({
-    "@platforms//os:osx": [],
-    "//conditions:default": ["@platforms//:incompatible"],
-})
-
 sh_binary(
     name = "health_check",
     srcs = ["health_check.sh"],
     data = ["@com_github_redis_redis//:redis_cli"],
-    target_compatible_with = not_windows,
 )
 
 itest_service(
@@ -26,5 +20,4 @@ itest_service(
     ],
     exe = "@com_github_redis_redis//:redis",
     health_check = ":health_check",
-    target_compatible_with = not_windows,
 )
