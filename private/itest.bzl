@@ -11,6 +11,7 @@ In addition, you can set the `hot_reloadable` attribute on an `itest_service`, i
 forward the ibazel hot-reload notification over stdin instead of restarting the service.
 """
 
+load("@aspect_bazel_lib//lib:paths.bzl", "to_rlocation_path")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 
 _ServiceGroupInfo = provider(
@@ -26,10 +27,12 @@ def _collect_services(deps):
         services |= dep[_ServiceGroupInfo].services
     return services
 
-def _run_environment(ctx):
-    return RunEnvironmentInfo(environment = {
-        "GET_ASSIGNED_PORT_BIN": ctx.executable._get_assigned_port.short_path,
-    })
+def _run_environment(ctx, service_specs_file):
+    return {
+        "SVCINIT_SERVICE_SPECS_RLOCATION_PATH": to_rlocation_path(ctx, service_specs_file),
+        "SVCINIT_ENABLE_PER_SERVICE_RELOAD": str(ctx.attr._enable_per_service_reload[BuildSettingInfo].value),
+        "SVCINIT_GET_ASSIGNED_PORT_BIN_RLOCATION_PATH": to_rlocation_path(ctx, ctx.executable._get_assigned_port),
+    }
 
 def _services_runfiles(ctx, services_attr_name = "services"):
     return [
@@ -95,11 +98,11 @@ def _itest_binary_impl(ctx, extra_service_spec_kwargs, extra_exe_runfiles = []):
     }
 
     if version_file:
-        extra_service_spec_kwargs["version_file"] = version_file.short_path
+        extra_service_spec_kwargs["version_file"] = to_rlocation_path(ctx, version_file)
 
     service = struct(
         label = str(ctx.label),
-        exe = ctx.executable.exe.short_path,
+        exe = to_rlocation_path(ctx, ctx.executable.exe),
         args = args,
         env = env,
         deps = [str(dep.label) for dep in ctx.attr.deps],
@@ -119,7 +122,7 @@ def _itest_binary_impl(ctx, extra_service_spec_kwargs, extra_exe_runfiles = []):
     runfiles = runfiles.merge_all(_services_runfiles(ctx, "deps") + exe_runfiles)
 
     return [
-        _run_environment(ctx),
+        RunEnvironmentInfo(environment = _run_environment(ctx, service_specs_file)),
         DefaultInfo(runfiles = runfiles),
         _ServiceGroupInfo(services = services),
     ]
@@ -134,7 +137,7 @@ def _itest_service_impl(ctx):
     extra_exe_runfiles = []
 
     if ctx.attr.health_check:
-        extra_service_spec_kwargs["health_check"] = ctx.executable.health_check.short_path
+        extra_service_spec_kwargs["health_check"] = to_rlocation_path(ctx, ctx.executable.health_check)
         extra_exe_runfiles.append(ctx.attr.health_check.default_runfiles)
 
     return _itest_binary_impl(ctx, extra_service_spec_kwargs, extra_exe_runfiles)
@@ -200,7 +203,7 @@ def _itest_service_group_impl(ctx):
     runfiles = runfiles.merge_all(_services_runfiles(ctx))
 
     return [
-        _run_environment(ctx),
+        RunEnvironmentInfo(environment = _run_environment(ctx, service_specs_file)),
         DefaultInfo(runfiles = runfiles),
         _ServiceGroupInfo(services = services),
     ]
@@ -225,7 +228,12 @@ It is also useful to bring up multiple services with a single `bazel run` comman
 dev environments.""",
 )
 
-def _create_svcinit_actions(ctx, services, extra_svcinit_args = ""):
+def _create_svcinit_actions(ctx, services):
+    ctx.actions.symlink(
+        output = ctx.outputs.executable,
+        target_file = ctx.executable._svcinit,
+    )
+
     # Avoid expanding during analysis phase.
     service_content = ctx.actions.args()
     service_content.set_param_file_format("multiline")
@@ -237,24 +245,12 @@ def _create_svcinit_actions(ctx, services, extra_svcinit_args = ""):
         content = service_content,
     )
 
-    ctx.actions.write(
-        output = ctx.outputs.executable,
-        content = 'exec {svcinit_path} -svc.specs-path={service_specs_path} -svc.enable-hot-reload={enable_per_service_reload} {extra_svcinit_args} "$@"'.format(
-            svcinit_path = ctx.executable._svcinit.short_path,
-            service_specs_path = service_specs_file.short_path,
-            enable_per_service_reload = ctx.attr._enable_per_service_reload[BuildSettingInfo].value,
-            extra_svcinit_args = extra_svcinit_args,
-        ),
-    )
-
     return service_specs_file
 
 def _service_test_impl(ctx):
-    extra_svcinit_args = [ctx.executable.test.short_path]
     service_specs_file = _create_svcinit_actions(
         ctx,
         _collect_services(ctx.attr.services),
-        extra_svcinit_args = " ".join(extra_svcinit_args),
     )
 
     runfiles = ctx.runfiles([service_specs_file])
@@ -262,8 +258,11 @@ def _service_test_impl(ctx):
         ctx.attr.test.default_runfiles,
     ])
 
+    env = _run_environment(ctx, service_specs_file)
+    env["SVCINIT_TEST_RLOCATION_PATH"] = to_rlocation_path(ctx, ctx.executable.test)
+
     return [
-        _run_environment(ctx),
+        RunEnvironmentInfo(environment = env),
         DefaultInfo(runfiles = runfiles),
         coverage_common.instrumented_files_info(ctx, dependency_attributes = ["test"]),
     ]

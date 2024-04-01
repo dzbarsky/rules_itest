@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"flag"
 	"fmt"
 	"log"
 	"net"
@@ -17,6 +16,8 @@ import (
 	"syscall"
 	"text/tabwriter"
 	"time"
+
+	"github.com/bazelbuild/rules_go/go/runfiles"
 
 	"rules_itest/logger"
 	"rules_itest/runner"
@@ -30,13 +31,10 @@ func must(err error) {
 }
 
 func main() {
-	flags := flag.NewFlagSet("svcinit", flag.ExitOnError)
+	serviceSpecsPath, err := runfiles.Rlocation(os.Getenv("SVCINIT_SERVICE_SPECS_RLOCATION_PATH"))
+	must(err)
 
-	serviceSpecsPath := flags.String("svc.specs-path", "", "File defining which services to run")
-	allowSvcctl := flags.Bool("svc.allow-svcctl", false, "If true, spawns a server to handle svcctl commands")
-	enableHotReload := flags.Bool("svc.enable-hot-reload", false, "If true, hot-reload at a per-service granularity")
-	_ = allowSvcctl
-
+	enablePerServiceReload := os.Getenv("SVCINIT_ENABLE_PER_SERVICE_RELOAD") == "True"
 	shouldHotReload := os.Getenv("IBAZEL_NOTIFY_CHANGES") == "y"
 	testLabel := os.Getenv("TEST_TARGET")
 
@@ -52,37 +50,6 @@ func main() {
 			}
 		}()
 	}
-
-	// the flags library doesn't have a good way to ignore unknown args and return them
-	// so we do a hacky thing to achieve that behavior here.
-	// only support -flag=value and -flag style flags for svcinit (-flag value is *not* supported)
-	// everything else is passed to the test runner.
-	// TODO: is this to support --test_arg? Do we need it?
-	isSvcInitFlag := func(flagName string) bool {
-		return flagName == "help" || flagName == "h" || flags.Lookup(flagName) != nil
-	}
-	var svcInitArgs []string
-	var testArgs []string
-	for i := 1; i < len(os.Args); i++ {
-		arg := os.Args[i]
-		if arg == "--" {
-			testArgs = append(testArgs, os.Args[i+1:]...)
-			break
-		}
-		if !strings.HasPrefix(arg, "-") {
-			// not a flag, just assume this is a test args
-			testArgs = append(testArgs, arg)
-			continue
-		}
-
-		flagName := strings.TrimLeft(strings.Split(arg, "=")[0], "-")
-		if isSvcInitFlag(flagName) {
-			svcInitArgs = append(svcInitArgs, arg)
-		} else {
-			testArgs = append(testArgs, arg)
-		}
-	}
-	_ = flags.Parse(svcInitArgs)
 
 	// Sockets have a short max path length (108 chars) so the TEST_TMPDIR path is way too long.
 	// Put them in the OS temp location - note that this is per-test (i.e. hermetic) on linux anyway.
@@ -101,9 +68,12 @@ func main() {
 	}
 	os.Setenv("TMPDIR", tmpDir)
 
+	getAssignedPortBinPath, err := runfiles.Rlocation(os.Getenv("SVCINIT_GET_ASSIGNED_PORT_BIN_RLOCATION_PATH"))
+	os.Setenv("GET_ASSIGNED_PORT_BIN", getAssignedPortBinPath)
+
 	isOneShot := !shouldHotReload && testLabel != ""
 
-	serviceSpecs, err := readVersionedServiceSpecs(*serviceSpecsPath)
+	serviceSpecs, err := readVersionedServiceSpecs(serviceSpecsPath)
 	must(err)
 
 	/*if *allowSvcctl {
@@ -158,9 +128,13 @@ func main() {
 		var testCmd *exec.Cmd
 		var testErr error
 		if testLabel != "" {
+			testArgs := os.Args[1:]
+			testPath, err := runfiles.Rlocation(os.Getenv("SVCINIT_TEST_RLOCATION_PATH"))
+			must(err)
+
 			fmt.Println("")
-			log.Printf("Executing test: %s\n", strings.Join(testArgs, " "))
-			testCmd = exec.CommandContext(ctx, testArgs[0], testArgs[1:]...)
+			log.Printf("Executing test: %s, %s\n", testPath, strings.Join(testArgs, " "))
+			testCmd = exec.CommandContext(ctx, testPath, testArgs...)
 			testCmd.Stdout = os.Stdout
 			testCmd.Stderr = os.Stderr
 
@@ -216,7 +190,7 @@ func main() {
 			break
 		}
 
-		if shouldHotReload && !*enableHotReload {
+		if shouldHotReload && !enablePerServiceReload {
 			fmt.Println()
 			fmt.Println()
 			fmt.Println("###########################################################################################")
@@ -241,7 +215,7 @@ func main() {
 			log.Println(ibazelCmd)
 
 			// Restart any services as needed.
-			serviceSpecs, err := readVersionedServiceSpecs(*serviceSpecsPath)
+			serviceSpecs, err := readVersionedServiceSpecs(serviceSpecsPath)
 			must(err)
 
 			criticalPath, err = r.UpdateSpecsAndRestart(serviceSpecs, []byte(ibazelCmd))
@@ -272,8 +246,27 @@ func readVersionedServiceSpecs(
 			ServiceSpec: serviceSpec,
 		}
 
+		exePath, err := runfiles.Rlocation(s.Exe)
+		if err != nil {
+			return nil, err
+		}
+		s.Exe = exePath
+
+		if s.HealthCheck != "" {
+			healthCheckPath, err := runfiles.Rlocation(serviceSpec.HealthCheck)
+			if err != nil {
+				return nil, err
+			}
+			s.HealthCheck = healthCheckPath
+		}
+
 		if serviceSpec.VersionFile != "" {
-			version, err := os.ReadFile(serviceSpec.VersionFile)
+			versionFilePath, err := runfiles.Rlocation(serviceSpec.VersionFile)
+			if err != nil {
+				return nil, err
+			}
+
+			version, err := os.ReadFile(versionFilePath)
 			if err != nil {
 				return nil, err
 			}
