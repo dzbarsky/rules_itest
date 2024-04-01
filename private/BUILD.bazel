@@ -10,6 +10,7 @@ bzl_library(
     srcs = ["itest.bzl"],
     visibility = ["//visibility:public"],
     deps = [
+        "@aspect_bazel_lib//lib:paths",
         "@bazel_skylib//rules:common_settings",
     ],
 )

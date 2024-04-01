@@ -1,54 +1,5 @@
 load("@gazelle//:def.bzl", "gazelle")
-load("@rules_itest//:itest.bzl", "itest_service", "itest_service_group")
 
 package(default_visibility = ["//visibility:public"])
 
 gazelle(name = "gazelle")
-
-itest_service(
-    name = "speedy_service",
-    args = [
-        "-port",
-        "8000",
-    ],
-    env = {"foo": "bar"},
-    exe = "//go_service",
-    http_health_check_address = "http://localhost:8000",
-)
-
-itest_service(
-    name = "sleepy_service",
-    args = [
-        "-port",
-        "8001",
-        "-sleep-time",
-        "2s",
-        "-busy-time",
-        "2s",
-    ],
-    exe = "//go_service",
-    http_health_check_address = "http://localhost:8001",
-)
-
-itest_service_group(
-    name = "services",
-    services = [
-        ":sleepy_service",
-        ":speedy_service",
-    ],
-    tags = ["manual"],
-)
-
-itest_service(
-    name = "service_with_data",
-    args = [
-        "-port",
-        "$${PORT}",
-        "-file-to-open",
-        "$(location :maven_install.json)",
-    ],
-    autoassign_port = True,
-    data = [":maven_install.json"],
-    exe = "//go_service",
-    http_health_check_address = "http://localhost:$${PORT}",
-)

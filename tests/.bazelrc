@@ -1,0 +1,2 @@
+import ../.bazelrc
+common --noenable_runfiles

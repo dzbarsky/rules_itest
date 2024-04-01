@@ -1,3 +1,5 @@
 bazel-*
 MODULE.bazel.lock
 examples/MODULE.bazel.lock
+tests/MODULE.bazel.lock
+*.swp
