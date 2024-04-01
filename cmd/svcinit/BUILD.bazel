@@ -2,7 +2,11 @@ load("@rules_go//go:def.bzl", "go_binary", "go_library")
 
 go_library(
     name = "svcinit_lib",
-    srcs = ["main.go"],
+    srcs = [
+        "main.go",
+        "set_sockopt_linger_unix.go",
+        "set_sockopt_linger_windows.go",
+    ],
     importpath = "rules_itest/cmd/svcinit",
     visibility = ["//visibility:private"],
     deps = [

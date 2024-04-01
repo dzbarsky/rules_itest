@@ -69,6 +69,7 @@ func main() {
 	os.Setenv("TMPDIR", tmpDir)
 
 	getAssignedPortBinPath, err := runfiles.Rlocation(os.Getenv("SVCINIT_GET_ASSIGNED_PORT_BIN_RLOCATION_PATH"))
+	must(err)
 	os.Setenv("GET_ASSIGNED_PORT_BIN", getAssignedPortBinPath)
 
 	isOneShot := !shouldHotReload && testLabel != ""
@@ -284,7 +285,7 @@ func readVersionedServiceSpecs(
 				Control: func(network, address string, conn syscall.RawConn) error {
 					var setSockoptErr error
 					err := conn.Control(func(fd uintptr) {
-						setSockoptErr = syscall.SetsockoptLinger(int(fd), syscall.SOL_SOCKET, syscall.SO_LINGER, &syscall.Linger{
+						setSockoptErr = setSockoptLinger(fd, syscall.SOL_SOCKET, syscall.SO_LINGER, &syscall.Linger{
 							Onoff:  1,
 							Linger: 0,
 						})
