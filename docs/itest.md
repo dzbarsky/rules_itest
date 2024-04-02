@@ -93,7 +93,7 @@ Examples include: filesystem setup, dynamic config file generation (especially i
 ## service_test
 
 <pre>
-service_test(<a href="#service_test-name">name</a>, <a href="#service_test-services">services</a>, <a href="#service_test-test">test</a>)
+service_test(<a href="#service_test-name">name</a>, <a href="#service_test-data">data</a>, <a href="#service_test-env">env</a>, <a href="#service_test-services">services</a>, <a href="#service_test-test">test</a>)
 </pre>
 
 Brings up a set of services/tasks and runs a test target against them.
@@ -126,6 +126,8 @@ Typically this would be wrapped into a macro.
 | Name  | Description | Type | Mandatory | Default |
 | :------------- | :------------- | :------------- | :------------- | :------------- |
 | <a id="service_test-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | required |  |
+| <a id="service_test-data"></a>data |  -   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | <code>[]</code> |
+| <a id="service_test-env"></a>env |  The service manager will merge these variables into the environment when spawning the underlying binary.   | <a href="https://bazel.build/rules/lib/dict">Dictionary: String -> String</a> | optional | <code>{}</code> |
 | <a id="service_test-services"></a>services |  Services/tasks that comprise this group. Can be <code>itest_service</code>, <code>itest_task</code>, or <code>itest_service_group</code>.   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | <code>[]</code> |
 | <a id="service_test-test"></a>test |  The underlying test target to execute once the services have been brought up and healthchecked.   | <a href="https://bazel.build/concepts/labels">Label</a> | optional | <code>None</code> |
 

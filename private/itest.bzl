@@ -273,6 +273,10 @@ _service_test_attrs = {
         executable = True,
         doc = "The underlying test target to execute once the services have been brought up and healthchecked.",
     ),
+    "env": attr.string_dict(
+        doc = "The service manager will merge these variables into the environment when spawning the underlying binary.",
+    ),
+    "data": attr.label_list(allow_files = True),
 } | _itest_service_group_attrs
 
 service_test = rule(
