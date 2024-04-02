@@ -22,6 +22,7 @@ archive_override(
     module_name = "rules_jvm_external",
     strip_prefix = "rules_jvm_external-c26c79e2246d9108958aaedbf309d6fdb70fc8b7",
     urls = ["https://github.com/dzbarsky/rules_jvm_external/archive/c26c79e2246d9108958aaedbf309d6fdb70fc8b7.tar.gz"],
+    integrity = "sha256-9GagsNu5hoixV38aomYwfITzmHgSCcG6KbouOfn4g9Y=",
 )
 
 maven = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
