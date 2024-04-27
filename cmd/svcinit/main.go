@@ -66,6 +66,7 @@ func main() {
 		must(err)
 		defer os.RemoveAll(tmpDir)
 	}
+	os.Setenv("TEST_TMPDIR", tmpDir)
 	os.Setenv("TMPDIR", tmpDir)
 
 	getAssignedPortBinPath, err := runfiles.Rlocation(os.Getenv("SVCINIT_GET_ASSIGNED_PORT_BIN_RLOCATION_PATH"))
