@@ -149,7 +149,6 @@ func (r *runner) UpdateSpecsAndRestart(
 
 func prepareServiceInstance(ctx context.Context, s svclib.VersionedServiceSpec) (*ServiceInstance, error) {
 	cmd := exec.CommandContext(ctx, s.Exe, s.Args...)
-	setPgid(cmd)
 	// Note, this leaks the caller's env into the service, so it's not hermetic.
 	// For `bazel test`, Bazel is already sanitizing the env, so it's fine.
 	// For `bazel run`, there is no expectation of hermeticity, and it can be nice to use env to control behavior.
@@ -184,7 +183,7 @@ func prepareServiceInstance(ctx context.Context, s svclib.VersionedServiceSpec) 
 }
 
 func stopInstance(serviceInstance *ServiceInstance) {
-	killGroup(serviceInstance.Cmd.Process)
+	serviceInstance.Cmd.Process.Kill()
 	serviceInstance.Cmd.Wait()
 
 	for serviceInstance.Cmd.ProcessState == nil {

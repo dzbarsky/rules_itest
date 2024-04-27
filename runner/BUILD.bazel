@@ -4,8 +4,6 @@ go_library(
     name = "runner",
     srcs = [
         "runner.go",
-        "runner_unix.go",
-        "runner_windows.go",
         "service_instance.go",
         "topo_starter.go",
     ],
