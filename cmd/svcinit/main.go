@@ -34,6 +34,14 @@ func main() {
 	serviceSpecsPath, err := runfiles.Rlocation(os.Getenv("SVCINIT_SERVICE_SPECS_RLOCATION_PATH"))
 	must(err)
 
+	// Set up the environment properly so child processes can find their runfiles.
+	runfilesEnv, err := runfiles.Env()
+	must(err)
+	for _, kv := range runfilesEnv {
+		parts := strings.SplitN(kv, "=", 2)
+		os.Setenv(parts[0], parts[1])
+	}
+
 	enablePerServiceReload := os.Getenv("SVCINIT_ENABLE_PER_SERVICE_RELOAD") == "True"
 	shouldHotReload := os.Getenv("IBAZEL_NOTIFY_CHANGES") == "y"
 	testLabel := os.Getenv("TEST_TARGET")
