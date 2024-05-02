@@ -6,7 +6,7 @@ package(default_visibility = ["//visibility:public"])
 gazelle(name = "gazelle")
 
 itest_service(
-    name = "speedy_service",
+    name = "_speedy_service",
     args = [
         "-port",
         "8000",
@@ -14,6 +14,13 @@ itest_service(
     env = {"foo": "bar"},
     exe = "//go_service",
     http_health_check_address = "http://localhost:8000",
+    tags = ["manual"],
+)
+
+# Make sure a degenerate group works.
+itest_service_group(
+    name = "speedy_service",
+    services = [":_speedy_service"],
 )
 
 itest_service(

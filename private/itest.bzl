@@ -199,7 +199,7 @@ def _itest_service_group_impl(ctx):
     services = _collect_services(ctx.attr.services)
     service_specs_file = _create_svcinit_actions(ctx, services)
 
-    runfiles = ctx.runfiles(ctx.files.data + [service_specs_file])
+    runfiles = ctx.runfiles([service_specs_file])
     runfiles = runfiles.merge_all(_services_runfiles(ctx))
 
     return [
