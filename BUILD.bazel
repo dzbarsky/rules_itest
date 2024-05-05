@@ -1,7 +1,4 @@
-load("@gazelle//:def.bzl", "gazelle")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
-
-gazelle(name = "gazelle")
 
 cc_binary(
     name = "exit0",
