@@ -5,9 +5,17 @@ This ruleset supports [ibazel](https://github.com/bazelbuild/bazel-watcher) when
 As a UX optimization, the service manager is able to restart only the modified services, instead of all services,
 when it receives the reload notification from ibazel. This capability depends on a cache-busting input, so it is hidden
 behind an an extra CLI flag, like so:
-`ibazel run @rules_itest//:enable_per_service_reload //path/to:target`
+```
+.bazelrc
 
-In addition, you can set the `hot_reloadable` attribute on an `itest_service`, in that case the service manager will
+build:enable-reload --@rules_itest//:enable_per_service_reload
+fetch:enable-reload --@rules_itest//:enable_per_service_reload
+query:enable-reload --@rules_itest//:enable_per_service_reload
+```
+
+`ibazel run --config enable-reload //path/to:target`
+
+In addition, if can set the `hot_reloadable` attribute on an `itest_service`, the service manager will
 forward the ibazel hot-reload notification over stdin instead of restarting the service.
 """
 

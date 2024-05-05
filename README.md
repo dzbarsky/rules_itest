@@ -11,10 +11,19 @@ This ruleset also integrates with [ibazel](https://github.com/bazelbuild/bazel-w
 # Usage
 See the documentation in the [docs folder](https://github.com/dzbarsky/rules_itest/blob/master/docs/itest.md).
 
-Note that the implementation of per-service reload under ibazel works by injecting a cache-busting input, so it is disabled by default to keep tests cacheable. You can enable it with an extra CLI flag, like so:
-`ibazel run @rules_itest//:enable_per_service_reload //path/to:target`
+Note that the implementation of per-service reload under ibazel works by injecting a cache-busting input, so it is disabled by default to keep tests cacheable. You can enable it with the `@rules_itest//:enable_per_service_reload` flag.
+Note that `ibazel` uses `cquery` which does not accept Starlark flags, and `common` in `.bazelrc` also does not work with Starlark flags, so you may need a setup like this:
+```
+.bazelrc
+
+build:enable-reload --@rules_itest//:enable_per_service_reload
+fetch:enable-reload --@rules_itest//:enable_per_service_reload
+query:enable-reload --@rules_itest//:enable_per_service_reload
+```
+
+`ibazel run --config enable-reload //path/to:target`
 
 # Examples
-Basic usage examples can be found under the [examples folder](https://github.com/dzbarsky/rules_itest/tree/master/examples).
+Basic usage examples (Go or Node binaries) can be found under the the [tests folder](https://github.com/dzbarsky/rules_itest/tree/master/tests).
 
-The examples show how to run mysql, redis, dynamodb, as well as Golang and Node binaries.
+More advance usage examples (mysql, redis, dynamodb) can be found under the [examples folder](https://github.com/dzbarsky/rules_itest/tree/master/examples).
