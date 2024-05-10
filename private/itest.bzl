@@ -205,6 +205,13 @@ Examples include: filesystem setup, dynamic config file generation (especially i
 
 def _itest_service_group_impl(ctx):
     services = _collect_services(ctx.attr.services)
+    service = struct(
+        type = "group",
+        label = str(ctx.label),
+        deps = [str(service.label) for service in ctx.attr.services],
+    )
+    services[service.label] = service
+
     service_specs_file = _create_svcinit_actions(ctx, services)
 
     runfiles = ctx.runfiles([service_specs_file])

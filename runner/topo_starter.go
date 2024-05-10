@@ -18,6 +18,9 @@ func (st *startTask) Key() string {
 }
 
 func (st *startTask) Run(ctx context.Context) error {
+	if st.serviceInstance.Type == "group" {
+		return nil
+	}
 	log.Printf("Starting %s %v\n", colorize(st.serviceInstance.VersionedServiceSpec), st.serviceInstance.Args[1:])
 	startErr := st.serviceInstance.Start(ctx)
 	if startErr != nil {

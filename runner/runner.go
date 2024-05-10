@@ -45,6 +45,9 @@ func (r *runner) StopAll() (map[string]*os.ProcessState, error) {
 	states := make(map[string]*os.ProcessState)
 
 	for _, serviceInstance := range r.serviceInstances {
+		if serviceInstance.Type == "group" {
+			continue
+		}
 		stopInstance(serviceInstance)
 		states[serviceInstance.Label] = serviceInstance.Cmd.ProcessState
 	}
@@ -111,6 +114,9 @@ func (r *runner) UpdateSpecs(serviceSpecs ServiceSpecs, ibazelCmd []byte) error 
 
 	for _, label := range updateActions.toStopLabels {
 		serviceInstance := r.serviceInstances[label]
+		if serviceInstance.Type == "group" {
+			continue
+		}
 		stopInstance(serviceInstance)
 		delete(r.serviceInstances, label)
 	}
@@ -148,6 +154,13 @@ func (r *runner) UpdateSpecsAndRestart(
 }
 
 func prepareServiceInstance(ctx context.Context, s svclib.VersionedServiceSpec) (*ServiceInstance, error) {
+	if s.Type == "group" {
+		return &ServiceInstance{
+			VersionedServiceSpec: s,
+			startErrFn:           sync.OnceValue(func() error { return nil }),
+		}, nil
+	}
+
 	cmd := exec.CommandContext(ctx, s.Exe, s.Args...)
 	// Note, this leaks the caller's env into the service, so it's not hermetic.
 	// For `bazel test`, Bazel is already sanitizing the env, so it's fine.

@@ -2,7 +2,7 @@ package svclib
 
 // Created by Starlark
 type ServiceSpec struct {
-	// Type can be "service" or "task".
+	// Type can be "service", "task", or "group".
 	Type                   string            `json:"type"`
 	Label                  string            `json:"label"`
 	Args                   []string          `json:"args"`

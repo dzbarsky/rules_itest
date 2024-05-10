@@ -47,6 +47,14 @@ itest_service_group(
 )
 
 itest_service(
+    name = "depends_on_group",
+    exe = "@rules_itest//:exit0",
+    deps = [
+        ":speedy_service",
+    ],
+)
+
+itest_service(
     name = "service_with_data",
     args = [
         "-port",
