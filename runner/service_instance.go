@@ -45,6 +45,10 @@ func (s *ServiceInstance) WaitUntilHealthy(ctx context.Context) error {
 		s.startDuration = time.Since(s.startTime)
 	}()
 
+	if s.Type == "group" {
+		return nil
+	}
+
 	coloredLabel := colorize(s.VersionedServiceSpec)
 	if s.Type == "task" {
 		err := s.Wait()

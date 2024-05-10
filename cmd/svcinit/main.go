@@ -256,6 +256,11 @@ func readVersionedServiceSpecs(
 			ServiceSpec: serviceSpec,
 		}
 
+		if s.Type == "group" {
+			versionedServiceSpecs[label] = s
+			continue
+		}
+
 		exePath, err := runfiles.Rlocation(s.Exe)
 		if err != nil {
 			return nil, err
