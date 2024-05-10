@@ -3,6 +3,7 @@ package runner
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"reflect"
@@ -36,23 +37,44 @@ func New(ctx context.Context, serviceSpecs ServiceSpecs) (*runner, error) {
 }
 
 func (r *runner) StartAll() ([]topological.Task, error) {
-	starter := newTopologicalStarter(r.serviceInstances)
+	tasks := allTasks(r.serviceInstances, func(ctx context.Context, service *ServiceInstance) error {
+		if service.Type == "group" {
+			return nil
+		}
+		log.Printf("Starting %s %v\n", colorize(service.VersionedServiceSpec), service.Args[1:])
+		startErr := service.Start(ctx)
+		if startErr != nil {
+			return startErr
+		}
+		return service.WaitUntilHealthy(ctx)
+	})
+	starter := topological.NewRunner(tasks)
 	err := starter.Run(r.ctx)
 	return starter.CriticalPath(), err
 }
 
 func (r *runner) StopAll() (map[string]*os.ProcessState, error) {
+	tasks := allTasks(r.serviceInstances, func(ctx context.Context, service *ServiceInstance) error {
+		if service.Type == "group" {
+			return nil
+		}
+		log.Printf("Stopping %s\n", colorize(service.VersionedServiceSpec))
+		stopInstance(service)
+		return nil
+	})
+	stopper := topological.NewReversedRunner(tasks)
+	err := stopper.Run(r.ctx)
+
 	states := make(map[string]*os.ProcessState)
 
 	for _, serviceInstance := range r.serviceInstances {
 		if serviceInstance.Type == "group" {
 			continue
 		}
-		stopInstance(serviceInstance)
 		states[serviceInstance.Label] = serviceInstance.Cmd.ProcessState
 	}
 
-	return states, nil
+	return states, err
 }
 
 func (r *runner) GetStartDurations() map[string]time.Duration {
