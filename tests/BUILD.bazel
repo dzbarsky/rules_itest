@@ -13,7 +13,7 @@ itest_service(
     ],
     env = {"foo": "bar"},
     exe = "//go_service",
-    http_health_check_address = "http://localhost:8000",
+    http_health_check_address = "http://127.0.0.1:8000",
     tags = ["manual"],
 )
 
@@ -34,7 +34,7 @@ itest_service(
         ".75s",
     ],
     exe = "//go_service",
-    http_health_check_address = "http://localhost:8001",
+    http_health_check_address = "http://127.0.0.1:8001",
 )
 
 itest_service_group(
@@ -65,5 +65,16 @@ itest_service(
     autoassign_port = True,
     data = [":go.mod"],
     exe = "//go_service",
-    http_health_check_address = "http://localhost:$${PORT}",
+    http_health_check_address = "http://127.0.0.1:$${PORT}",
+)
+
+itest_service(
+    name = "autoassigned_port",
+    args = [
+        "-port",
+        "$${@@//:autoassigned_port}",
+    ],
+    autoassign_port = True,
+    exe = "//go_service",
+    http_health_check_address = "http://127.0.0.1:$${@@//:autoassigned_port}",
 )
