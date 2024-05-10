@@ -347,5 +347,28 @@ func readVersionedServiceSpecs(
 	must(err)
 	os.Setenv("ASSIGNED_PORTS", string(serializedPorts))
 
+	replacements := make([]Replacement, 0, len(ports))
+	for label, port := range ports {
+		replacements = append(replacements, Replacement{
+			Old: "$${" + label + "}",
+			New: port,
+		})
+	}
+
+	for label, spec := range versionedServiceSpecs {
+		for _, r := range replacements {
+			spec.HttpHealthCheckAddress = strings.ReplaceAll(spec.HttpHealthCheckAddress, r.Old, r.New)
+			for i := range spec.Args {
+				spec.Args[i] = strings.ReplaceAll(spec.Args[i], r.Old, r.New)
+			}
+		}
+		versionedServiceSpecs[label] = spec
+	}
+
 	return versionedServiceSpecs, nil
+}
+
+type Replacement struct {
+	Old string
+	New string
 }

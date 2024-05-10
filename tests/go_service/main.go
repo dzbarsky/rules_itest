@@ -15,6 +15,9 @@ func main() {
 	sleepTime := flag.Duration("sleep-time", 0, "How long to sleep before binding the port")
 	busyWaitTime := flag.Duration("busy-time", 0, "How long to busy-wait before binding the port")
 	fileToOpen := flag.String("file-to-open", "", "A file to open to check runfiles")
+	port := flag.Int("port", 0, "Port to bind")
+
+	flag.Parse()
 
 	if *fileToOpen != "" {
 		f, err := os.Open(*fileToOpen)
@@ -23,9 +26,6 @@ func main() {
 		}
 		f.Close()
 	}
-	port := flag.Int("port", 0, "Port to bind")
-
-	flag.Parse()
 
 	log.Println("started")
 	time.Sleep(*sleepTime)
