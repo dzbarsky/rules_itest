@@ -1,0 +1,62 @@
+load("@aspect_bazel_lib//lib:copy_file.bzl", "copy_file")
+# See https://github.com/ganadist/sqlite4java/blob/master/ant/how-to-cross-compile_sqlite4java_r01.txt
+
+# JNI headers example https://github.com/bazelbuild/bazel/blob/master/src/main/native/BUILD
+copy_file(
+    name = "copy_link_jni_md_header",
+    src = select({
+        "@bazel_tools//src/conditions:darwin": "@bazel_tools//tools/jdk:jni_md_header-darwin",
+        "@bazel_tools//src/conditions:freebsd": "@bazel_tools//tools/jdk:jni_md_header-freebsd",
+        "@bazel_tools//src/conditions:openbsd": "@bazel_tools//tools/jdk:jni_md_header-openbsd",
+        "@bazel_tools//src/conditions:windows": "@bazel_tools//tools/jdk:jni_md_header-windows",
+        "//conditions:default": "@bazel_tools//tools/jdk:jni_md_header-linux",
+    }),
+    allow_symlink = True,
+    out = "jni_md.h",
+)
+
+copy_file(
+    name = "copy_link_jni_header",
+    src = "@bazel_tools//tools/jdk:jni_header",
+    allow_symlink = True,
+    out = "jni.h",
+)
+
+# See https://github.com/ganadist/sqlite4java/blob/7b55b3eab6901a0e49d6e1129431fa92c4206c0b/ant/build.gant#L215
+cc_binary(
+    name = "libsqlite4java.so",
+    linkshared = True,
+    srcs = [
+        "sqlite/sqlite3.c",
+        "sqlite/sqlite3.h",
+        "native/intarray.c",
+        "native/intarray.h",
+        "native/jni_setup.h",
+        "@//third_party/sqlite4java:sqlite_wrap.c",
+        "native/sqlite3_wrap_manual.c",
+        "native/sqlite3_wrap_manual.h",
+        "jni.h",
+        "jni_md.h",
+    ],
+    includes = [".", "sqlite"],
+    defines = [
+        "SQLITE_ENABLE_COLUMN_METADATA",
+        "SQLITE_ENABLE_FTS3",
+        "SQLITE_ENABLE_FTS3_PARENTHESIS",
+        "SQLITE_ENABLE_MEMORY_MANAGEMENT",
+        "SQLITE_ENABLE_STAT2",
+        "HAVE_READLINE=0",
+        "SQLITE_THREADSAFE=1",
+        "SQLITE_THREAD_OVERRIDE_LOCK=-1",
+        "TEMP_STORE=1",
+        # Upstream has this option but it's wrong, leads to link errors...
+        # "SQLITE_OMIT_LOAD_EXTENSION=1",
+        "SQLITE_OMIT_DEPRECATED",
+        "SQLITE_OS_UNIX=1",
+    ],
+    copts = [
+        "-Wno-implicit-const-int-float-conversion",
+        "-Wno-unused-variable",
+    ],
+    visibility = ["//visibility:public"],
+)

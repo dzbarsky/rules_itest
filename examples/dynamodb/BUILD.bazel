@@ -1,19 +1,35 @@
+load("@aspect_bazel_lib//lib:copy_file.bzl", "copy_file")
 load("@rules_go//go:def.bzl", "go_binary", "go_library")
-load("@rules_java//java:defs.bzl", "java_binary")
 load("@rules_itest//:itest.bzl", "itest_service")
+load("@rules_java//java:defs.bzl", "java_binary")
+
+# Because the `out` is non-configurable, we generate actions for all of these.
+# Only the right one for the target platform will get executed however.
+[
+    copy_file(
+        name = "gen_" + out,
+        src = "@sqlite4java//:libsqlite4java.so",
+        out = out,
+        allow_symlink = True,
+    )
+    for out in [
+        "libsqlite4java-osx-aarch64.dylib",
+        "libsqlite4java-osx.dylib",
+        "libsqlite4java-linux-aarch64.so",
+        "libsqlite4java-linux-amd64.so",
+    ]
+]
 
 java_binary(
     name = "bin",
-    # TODO(zbarsky): Ideally the maven rules would generate these data deps, but
-    # when I tried adding them there they didn't seem to get passed through to the runfiles.
     data = select({
-        "@bazel_tools//src/conditions:darwin_arm64": ["@maven//:libsqlite4java-osx-aarch64.dylib"],
-        "@bazel_tools//src/conditions:darwin_x86_64": ["@maven//:libsqlite4java-osx.dylib"],
-        "@bazel_tools//src/conditions:linux_aarch64": ["@maven//:libsqlite4java-linux-amd64.so"],
-        "@bazel_tools//src/conditions:linux_x86_64": ["@maven//:libsqlite4java-linux-i386.so"],
+        "@bazel_tools//src/conditions:darwin_arm64": ["libsqlite4java-osx-aarch64.dylib"],
+        "@bazel_tools//src/conditions:darwin_x86_64": ["libsqlite4java-osx.dylib"],
+        "@bazel_tools//src/conditions:linux_aarch64": ["libsqlite4java-linux-aarch64.so"],
+        "@bazel_tools//src/conditions:linux_x86_64": ["libsqlite4java-linux-amd64.so"],
     }),
     jvm_flags = [
-        "-Djava.library.path=$$JAVA_RUNFILES/rules_jvm_external~override~maven~maven",
+        "-Djava.library.path=$$JAVA_RUNFILES/_main/dynamodb",
     ],
     main_class = "com.amazonaws.services.dynamodbv2.local.main.ServerRunner",
     runtime_deps = [
@@ -29,7 +45,7 @@ itest_service(
         "--port",
         "$${PORT}",
     ],
-    autoassign_port = True,
+    autoassign_ports = ["http_port"],
     exe = ":bin",
     health_check = ":health_check",
 )

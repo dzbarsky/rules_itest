@@ -80,7 +80,7 @@ genrule(
     outs = ["port_health_check.sh"],
     cmd = """echo '#!/bin/sh
 MYSQL_CLI=$(rootpath :mysql_cli)
-PORT=$$($$GET_ASSIGNED_PORT_BIN @@//mysql:mysql_listening_on_port)
+PORT=$$($$GET_ASSIGNED_PORT_BIN @@//mysql:mysql_listening_on_port:http_port)
 set -x
 exec "$$MYSQL_CLI" --no-defaults --protocol tcp --host 127.0.0.1 --port "$$PORT" --user root -e "SELECT 1"' > $@""",
 )
@@ -93,7 +93,7 @@ itest_service(
         "--port",
         "$${PORT}",
     ],
-    autoassign_port = True,
+    autoassign_ports = ["http_port"],
     exe = ":with_migrations",
     health_check = ":port_health_check",
     visibility = ["//visibility:public"],
