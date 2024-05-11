@@ -139,7 +139,7 @@ def _itest_service_impl(ctx):
     extra_service_spec_kwargs = {
         "type": "service",
         "http_health_check_address": ctx.attr.http_health_check_address,
-        "autoassign_port": ctx.attr.autoassign_port,
+        "autoassign_ports": ctx.attr.autoassign_ports,
         "hot_reloadable": ctx.attr.hot_reloadable,
     }
     extra_exe_runfiles = []
@@ -152,17 +152,24 @@ def _itest_service_impl(ctx):
 
 _itest_service_attrs = _itest_binary_attrs | {
     # Note, autoassigning a port is a little racy. If you can stick to hardcoded ports and network namespace, you should prefer that.
-    "autoassign_port": attr.bool(
-        doc = """If true, the service manager will pick a free port and assign it to the service.
-        The port can be accessed by using `$${PORT}` in the service's args.
-        
-        The port is also acessible in the service-port mapping, which is a JSON string -> int map in the env var `ASSIGNED_PORTS`.
+    "autoassign_ports": attr.string_list(
+        doc = """For each element of the list, the service manager will pick a free port and assign it to the service.
+        The port's fully-qualified name is the service's fully-qualified label and the port name, separated by a colon.
+        For example, `@@//label/for:service:http_port`.
+
+        For convenience, the first port in a service's `autoassign_ports` list will be bound to the `$${PORT}` substitution when expanding the service's `http_health_check_address` and `args`.
+        For example, `args = ["-self-addr", "127.0.0.1:$${PORT}"]`.
+
+        The assigned ports for all services are available for substitution in `http_health_check_address` and `args` (in case one service needs the address for another one.)
+        For example, the following substitution: `args = ["-client-addr", "127.0.0.1:$${@@//label/for:service:http_port}"]`
+
+        The ports are also acessible in the service-port mapping, which is a JSON string -> int map propagated through the `ASSIGNED_PORTS` env var.
         For example, a port can be retrieved with the following JS code:
-        `JSON.parse(process.env["ASSIGNED_PORTS"])["@@//label/for:service"]`.
+        `JSON.parse(process.env["ASSIGNED_PORTS"])["@@//label/for:service:port_name"]`.
         
         Alternately, the env will also contain the location of a binary that can return the port, for contexts without a readily-accessible JSON parser.
         For example, the following Bash command: 
-        `PORT=$($GET_ASSIGNED_PORT_BIN @@//label/for:service)`""",
+        `PORT=$($GET_ASSIGNED_PORT_BIN @@//label/for:service:port_name)`""",
     ),
     "health_check": attr.label(
         cfg = "target",
@@ -178,8 +185,8 @@ _itest_service_attrs = _itest_binary_attrs | {
     ),
     "http_health_check_address": attr.string(
         doc = """If set, the service manager will send an HTTP request to this address to check if the service came up in a healthy state.
-        This check will be retried until it returns a 200 HTTP code. When used in conjunction with autoassigned ports, `$${PORT}` can be used in the address.
-        Example: `http_health_check_address = "http://localhost:$${PORT}",`""",
+        This check will be retried until it returns a 200 HTTP code. When used in conjunction with autoassigned ports, `$${@@//label/for:service:port_name}` can be used in the address.
+        Example: `http_health_check_address = "http://127.0.0.1:$${@@//label/for:service:port_name}",`""",
     ),
 }
 

@@ -7,6 +7,8 @@ import (
 	"os"
 	"strconv"
 	"time"
+
+	"github.com/bazelbuild/rules_go/go/runfiles"
 )
 
 var fibSink int
@@ -20,7 +22,11 @@ func main() {
 	flag.Parse()
 
 	if *fileToOpen != "" {
-		f, err := os.Open(*fileToOpen)
+		resolvedPath, err := runfiles.Rlocation(*fileToOpen)
+		if err != nil {
+			panic(err)
+		}
+		f, err := os.Open(resolvedPath)
 		if err != nil {
 			panic(err)
 		}

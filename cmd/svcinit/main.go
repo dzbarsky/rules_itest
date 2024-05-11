@@ -291,8 +291,7 @@ func readVersionedServiceSpecs(
 		s.Color = logger.Colorize(s.Label)
 
 		// Note, this can cause collisions. So be careful!
-		if s.ServiceSpec.AutoassignPort {
-
+		for portIdx, portName := range s.ServiceSpec.AutoassignPorts {
 			// We do a bit of a dance here to set SO_LINGER to 0. For details, see
 			// https://stackoverflow.com/questions/71975992/what-really-is-the-linger-time-that-can-be-set-with-so-linger-on-sockets
 			lc := net.ListenConfig{
@@ -319,20 +318,18 @@ func readVersionedServiceSpecs(
 			if err != nil {
 				return nil, err
 			}
-			err = listener.Close()
-			if err != nil {
-				return nil, err
+
+			qualifiedPortName := s.Label + ":" + portName
+			fmt.Printf("Assigning port %s to %s\n", port, qualifiedPortName)
+			ports.Set(qualifiedPortName, port)
+			s.ToClose = append(s.ToClose, listener)
+
+			if portIdx == 0 {
+				for i := range s.ServiceSpec.Args {
+					s.Args[i] = strings.ReplaceAll(s.Args[i], "$${PORT}", port)
+				}
+				s.HttpHealthCheckAddress = strings.ReplaceAll(s.HttpHealthCheckAddress, "$${PORT}", port)
 			}
-
-			fmt.Printf("Assigning port %s to %s\n", port, s.Label)
-
-			s.AssignedPort = port
-			ports.Set(s.Label, port)
-
-			for i := range s.ServiceSpec.Args {
-				s.Args[i] = strings.ReplaceAll(s.Args[i], "$${PORT}", port)
-			}
-			s.HttpHealthCheckAddress = strings.ReplaceAll(s.HttpHealthCheckAddress, "$${PORT}", port)
 		}
 
 		for i := range s.Args {

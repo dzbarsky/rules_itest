@@ -204,7 +204,15 @@ func prepareServiceInstance(ctx context.Context, s svclib.VersionedServiceSpec) 
 		VersionedServiceSpec: s,
 		Cmd:                  cmd,
 
-		startErrFn: sync.OnceValue(cmd.Start),
+		startErrFn: sync.OnceValue(func() error {
+			for _, l := range s.ToClose {
+				err := l.Close()
+				if err != nil {
+					return err
+				}
+			}
+			return cmd.Start()
+		}),
 	}
 
 	if s.HotReloadable {

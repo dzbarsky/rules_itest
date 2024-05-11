@@ -60,21 +60,21 @@ itest_service(
         "-port",
         "$${PORT}",
         "-file-to-open",
-        "$(location go.mod)",
+        "$(rlocationpath go.mod)",
     ],
-    autoassign_port = True,
+    autoassign_ports = ["http_port"],
     data = [":go.mod"],
     exe = "//go_service",
     http_health_check_address = "http://127.0.0.1:$${PORT}",
 )
 
 itest_service(
-    name = "autoassigned_port",
+    name = "autoassigned",
     args = [
         "-port",
-        "$${@@//:autoassigned_port}",
+        "$${@@//:autoassigned:http_port}",
     ],
-    autoassign_port = True,
+    autoassign_ports = ["http_port"],
     exe = "//go_service",
-    http_health_check_address = "http://127.0.0.1:$${@@//:autoassigned_port}",
+    http_health_check_address = "http://127.0.0.1:$${@@//:autoassigned:http_port}",
 )

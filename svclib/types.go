@@ -1,5 +1,7 @@
 package svclib
 
+import "net"
+
 // Created by Starlark
 type ServiceSpec struct {
 	// Type can be "service", "task", or "group".
@@ -12,14 +14,14 @@ type ServiceSpec struct {
 	HealthCheck            string            `json:"health_check"`
 	VersionFile            string            `json:"version_file"`
 	Deps                   []string          `json:"deps"`
-	AutoassignPort         bool              `json:"autoassign_port"`
+	AutoassignPorts        []string          `json:"autoassign_ports"`
 	HotReloadable          bool              `json:"hot_reloadable"`
 }
 
 // Our internal representation.
 type VersionedServiceSpec struct {
 	ServiceSpec
-	Version      string
-	AssignedPort string // only set if AutoassignPort is true, otherwise empty string
-	Color        string
+	Version string
+	Color   string
+	ToClose []net.Listener
 }
