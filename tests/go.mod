@@ -1,3 +1,3 @@
-module rules_itest/examples
+module rules_itest/tests
 
 go 1.21.0

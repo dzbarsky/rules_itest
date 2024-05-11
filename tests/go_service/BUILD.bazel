@@ -3,7 +3,7 @@ load("@rules_go//go:def.bzl", "go_binary", "go_library")
 go_library(
     name = "go_service_lib",
     srcs = ["main.go"],
-    importpath = "rules_itest/examples/go_service",
+    importpath = "rules_itest/tests/go_service",
     visibility = ["//visibility:private"],
     deps = ["@rules_go//go/runfiles:go_default_library"],
 )

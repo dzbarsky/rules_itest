@@ -16,7 +16,7 @@ func must(err error) {
 }
 
 func main() {
-	cmd := exec.Command(os.Getenv("GET_ASSIGNED_PORT_BIN"), "@@//dynamodb:dynamodb:http_port")
+	cmd := exec.Command(os.Getenv("GET_ASSIGNED_PORT_BIN"), "@@//dynamodb:dynamodb")
 	port, err := cmd.CombinedOutput()
 	must(err)
 

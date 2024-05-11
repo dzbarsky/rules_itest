@@ -9,7 +9,7 @@ js_binary(
 itest_service(
     name = "service",
     args = ["$${PORT}"],
-    autoassign_ports = ["http_port"],
+    autoassign_port = True,
     exe = ":server",
     http_health_check_address = "http://localhost:$${PORT}",
 )

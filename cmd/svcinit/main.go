@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"slices"
 	"strings"
 	"syscall"
 	"text/tabwriter"
@@ -290,8 +291,13 @@ func readVersionedServiceSpecs(
 
 		s.Color = logger.Colorize(s.Label)
 
+		namedPorts := slices.Clone(s.NamedPorts)
+		if s.AutoassignPort {
+			namedPorts = append(namedPorts, "")
+		}
+
 		// Note, this can cause collisions. So be careful!
-		for portIdx, portName := range s.ServiceSpec.AutoassignPorts {
+		for _, portName := range namedPorts {
 			// We do a bit of a dance here to set SO_LINGER to 0. For details, see
 			// https://stackoverflow.com/questions/71975992/what-really-is-the-linger-time-that-can-be-set-with-so-linger-on-sockets
 			lc := net.ListenConfig{
@@ -319,12 +325,16 @@ func readVersionedServiceSpecs(
 				return nil, err
 			}
 
-			qualifiedPortName := s.Label + ":" + portName
+			qualifiedPortName := s.Label
+			if portName != "" {
+				qualifiedPortName += ":" + portName
+			}
+
 			fmt.Printf("Assigning port %s to %s\n", port, qualifiedPortName)
 			ports.Set(qualifiedPortName, port)
 			s.ToClose = append(s.ToClose, listener)
 
-			if portIdx == 0 {
+			if portName == "" {
 				for i := range s.ServiceSpec.Args {
 					s.Args[i] = strings.ReplaceAll(s.Args[i], "$${PORT}", port)
 				}

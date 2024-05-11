@@ -45,7 +45,7 @@ itest_service(
         "--port",
         "$${PORT}",
     ],
-    autoassign_ports = ["http_port"],
+    autoassign_port = True,
     exe = ":bin",
     health_check = ":health_check",
 )
