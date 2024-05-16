@@ -250,6 +250,8 @@ func readVersionedServiceSpecs(
 	tmpDir := os.Getenv("TMPDIR")
 	socketDir := os.Getenv("SOCKET_DIR")
 
+	var toClose []net.Listener
+
 	ports := svclib.Ports{}
 	versionedServiceSpecs := make(map[string]svclib.VersionedServiceSpec, len(serviceSpecs))
 	for label, serviceSpec := range serviceSpecs {
@@ -332,7 +334,7 @@ func readVersionedServiceSpecs(
 
 			fmt.Printf("Assigning port %s to %s\n", port, qualifiedPortName)
 			ports.Set(qualifiedPortName, port)
-			s.ToClose = append(s.ToClose, listener)
+			toClose = append(toClose, listener)
 
 			if portName == "" {
 				for i := range s.ServiceSpec.Args {
@@ -349,6 +351,17 @@ func readVersionedServiceSpecs(
 
 		versionedServiceSpecs[label] = s
 	}
+
+	for _, listener := range toClose {
+		err := listener.Close()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Complete hack - we have observed that the ports may not be ready immediately after closing, even with SO_LINGER set to 0.
+	// Give the kernel a bit of time to figure out what we've done.
+	time.Sleep(10 * time.Millisecond)
 
 	serializedPorts, err := ports.Marshal()
 	must(err)
