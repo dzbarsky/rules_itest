@@ -1,7 +1,5 @@
 package svclib
 
-import "net"
-
 // Created by Starlark
 type ServiceSpec struct {
 	// Type can be "service", "task", or "group".
@@ -24,5 +22,4 @@ type VersionedServiceSpec struct {
 	ServiceSpec
 	Version string
 	Color   string
-	ToClose []net.Listener
 }
