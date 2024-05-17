@@ -154,7 +154,7 @@ def _itest_service_impl(ctx):
 _itest_service_attrs = _itest_binary_attrs | {
     # Note, autoassigning a port is a little racy. If you can stick to hardcoded ports and network namespace, you should prefer that.
     "autoassign_port": attr.bool(
-    doc = """If true, the service manager will pick a free port and assign it to the service.
+        doc = """If true, the service manager will pick a free port and assign it to the service.
         The port will be interpolated into `$${PORT}` in the service's `http_health_check_address` and `args`.
         It will also be exported under the target's fully qualified label in the service-port mapping.
 
@@ -351,7 +351,7 @@ def _create_version_file(ctx, inputs):
         mnemonic = "SvcVersionFile",
         # disable remote cache and sandbox, since the output is not stable given the inputs
         # additionally, running this action in the sandbox is way too expensive
-        execution_requirements = {"local": "1"},
+        execution_requirements = {"local": "1", "no-cache": "1"},
     )
 
     return output

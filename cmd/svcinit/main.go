@@ -84,7 +84,13 @@ func main() {
 
 	isOneShot := !shouldHotReload && testLabel != ""
 
-	serviceSpecs, err := readVersionedServiceSpecs(serviceSpecsPath)
+	unversionedSpecs, err := readServiceSpecs(serviceSpecsPath)
+	must(err)
+
+	ports, err := assignPorts(unversionedSpecs)
+	must(err)
+
+	serviceSpecs, err := augmentServiceSpecs(unversionedSpecs, ports)
 	must(err)
 
 	/*if *allowSvcctl {
@@ -226,7 +232,10 @@ func main() {
 			log.Println(ibazelCmd)
 
 			// Restart any services as needed.
-			serviceSpecs, err := readVersionedServiceSpecs(serviceSpecsPath)
+			unversionedSpecs, err := readServiceSpecs(serviceSpecsPath)
+			must(err)
+
+			serviceSpecs, err := augmentServiceSpecs(unversionedSpecs, ports)
 			must(err)
 
 			criticalPath, err = r.UpdateSpecsAndRestart(serviceSpecs, []byte(ibazelCmd))
@@ -235,24 +244,101 @@ func main() {
 	}
 }
 
-func readVersionedServiceSpecs(
+func readServiceSpecs(
 	path string,
 ) (
-	map[string]svclib.VersionedServiceSpec, error,
+	map[string]svclib.ServiceSpec, error,
 ) {
 	data, err := os.ReadFile(path)
 	must(err)
 
 	var serviceSpecs map[string]svclib.ServiceSpec
 	err = json.Unmarshal(data, &serviceSpecs)
-	must(err)
+	return serviceSpecs, err
+}
 
+func assignPorts(
+	serviceSpecs map[string]svclib.ServiceSpec,
+) (
+	svclib.Ports, error,
+) {
+	var toClose []net.Listener
+	ports := svclib.Ports{}
+
+	for label, spec := range serviceSpecs {
+		namedPorts := slices.Clone(spec.NamedPorts)
+		if spec.AutoassignPort {
+			namedPorts = append(namedPorts, "")
+		}
+
+		// Note, this can cause collisions. So be careful!
+		for _, portName := range namedPorts {
+			// We do a bit of a dance here to set SO_LINGER to 0. For details, see
+			// https://stackoverflow.com/questions/71975992/what-really-is-the-linger-time-that-can-be-set-with-so-linger-on-sockets
+			lc := net.ListenConfig{
+				Control: func(network, address string, conn syscall.RawConn) error {
+					var setSockoptErr error
+					err := conn.Control(func(fd uintptr) {
+						setSockoptErr = setSockoptLinger(fd, syscall.SOL_SOCKET, syscall.SO_LINGER, &syscall.Linger{
+							Onoff:  1,
+							Linger: 0,
+						})
+					})
+					if err != nil {
+						return err
+					}
+					return setSockoptErr
+				},
+			}
+
+			listener, err := lc.Listen(context.Background(), "tcp", "127.0.0.1:0")
+			if err != nil {
+				return nil, err
+			}
+			_, port, err := net.SplitHostPort(listener.Addr().String())
+			if err != nil {
+				return nil, err
+			}
+
+			qualifiedPortName := label
+			if portName != "" {
+				qualifiedPortName += ":" + portName
+			}
+
+			fmt.Printf("Assigning port %s to %s\n", port, qualifiedPortName)
+			ports.Set(qualifiedPortName, port)
+			toClose = append(toClose, listener)
+		}
+	}
+
+	for _, listener := range toClose {
+		err := listener.Close()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Complete hack - we have observed that the ports may not be ready immediately after closing, even with SO_LINGER set to 0.
+	// Give the kernel a bit of time to figure out what we've done.
+	time.Sleep(10 * time.Millisecond)
+
+	serializedPorts, err := ports.Marshal()
+	if err != nil {
+		return nil, err
+	}
+	os.Setenv("ASSIGNED_PORTS", string(serializedPorts))
+	return ports, nil
+}
+
+func augmentServiceSpecs(
+	serviceSpecs map[string]svclib.ServiceSpec,
+	ports svclib.Ports,
+) (
+	map[string]svclib.VersionedServiceSpec, error,
+) {
 	tmpDir := os.Getenv("TMPDIR")
 	socketDir := os.Getenv("SOCKET_DIR")
 
-	var toClose []net.Listener
-
-	ports := svclib.Ports{}
 	versionedServiceSpecs := make(map[string]svclib.VersionedServiceSpec, len(serviceSpecs))
 	for label, serviceSpec := range serviceSpecs {
 		s := svclib.VersionedServiceSpec{
@@ -293,55 +379,12 @@ func readVersionedServiceSpecs(
 
 		s.Color = logger.Colorize(s.Label)
 
-		namedPorts := slices.Clone(s.NamedPorts)
 		if s.AutoassignPort {
-			namedPorts = append(namedPorts, "")
-		}
-
-		// Note, this can cause collisions. So be careful!
-		for _, portName := range namedPorts {
-			// We do a bit of a dance here to set SO_LINGER to 0. For details, see
-			// https://stackoverflow.com/questions/71975992/what-really-is-the-linger-time-that-can-be-set-with-so-linger-on-sockets
-			lc := net.ListenConfig{
-				Control: func(network, address string, conn syscall.RawConn) error {
-					var setSockoptErr error
-					err := conn.Control(func(fd uintptr) {
-						setSockoptErr = setSockoptLinger(fd, syscall.SOL_SOCKET, syscall.SO_LINGER, &syscall.Linger{
-							Onoff:  1,
-							Linger: 0,
-						})
-					})
-					if err != nil {
-						return err
-					}
-					return setSockoptErr
-				},
+			port := ports[s.Label]
+			for i := range s.ServiceSpec.Args {
+				s.Args[i] = strings.ReplaceAll(s.Args[i], "$${PORT}", port)
 			}
-
-			listener, err := lc.Listen(context.Background(), "tcp", "127.0.0.1:0")
-			if err != nil {
-				return nil, err
-			}
-			_, port, err := net.SplitHostPort(listener.Addr().String())
-			if err != nil {
-				return nil, err
-			}
-
-			qualifiedPortName := s.Label
-			if portName != "" {
-				qualifiedPortName += ":" + portName
-			}
-
-			fmt.Printf("Assigning port %s to %s\n", port, qualifiedPortName)
-			ports.Set(qualifiedPortName, port)
-			toClose = append(toClose, listener)
-
-			if portName == "" {
-				for i := range s.ServiceSpec.Args {
-					s.Args[i] = strings.ReplaceAll(s.Args[i], "$${PORT}", port)
-				}
-				s.HttpHealthCheckAddress = strings.ReplaceAll(s.HttpHealthCheckAddress, "$${PORT}", port)
-			}
+			s.HttpHealthCheckAddress = strings.ReplaceAll(s.HttpHealthCheckAddress, "$${PORT}", port)
 		}
 
 		for i := range s.Args {
@@ -351,21 +394,6 @@ func readVersionedServiceSpecs(
 
 		versionedServiceSpecs[label] = s
 	}
-
-	for _, listener := range toClose {
-		err := listener.Close()
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	// Complete hack - we have observed that the ports may not be ready immediately after closing, even with SO_LINGER set to 0.
-	// Give the kernel a bit of time to figure out what we've done.
-	time.Sleep(10 * time.Millisecond)
-
-	serializedPorts, err := ports.Marshal()
-	must(err)
-	os.Setenv("ASSIGNED_PORTS", string(serializedPorts))
 
 	replacements := make([]Replacement, 0, len(ports))
 	for label, port := range ports {

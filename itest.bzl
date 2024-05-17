@@ -11,7 +11,7 @@ load(
 def itest_service(name, tags = [], **kwargs):
     _itest_service(
         name = name,
-        tags = tags,
+        tags = tags + ["ibazel_notify_changes"],
         **kwargs
     )
     _hygiene_test(
@@ -22,7 +22,7 @@ def itest_service(name, tags = [], **kwargs):
 def itest_service_group(name, tags = [], **kwargs):
     _itest_service_group(
         name = name,
-        tags = tags,
+        tags = tags + ["ibazel_notify_changes"],
         **kwargs
     )
     _hygiene_test(
@@ -33,16 +33,13 @@ def itest_service_group(name, tags = [], **kwargs):
 def itest_task(name, tags = [], **kwargs):
     _itest_task(
         name = name,
-        tags = tags,
+        tags = tags + ["ibazel_notify_changes"],
         **kwargs
     )
     _hygiene_test(
         name = name,
         tags = tags,
     )
-
-def service_test(tags = [], **kwargs):
-    _service_test(tags = tags + ["ibazel_notify_changes"], **kwargs)
 
 def _hygiene_test(name, **kwargs):
     service_test(
@@ -51,3 +48,5 @@ def _hygiene_test(name, **kwargs):
         test = "@rules_itest//:exit0",
         **kwargs
     )
+
+service_test = _service_test
