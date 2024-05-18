@@ -7,13 +7,23 @@ import (
 	"os"
 	"os/exec"
 	"reflect"
+	"runtime"
 	"sync"
+	"syscall"
 	"time"
 
 	"rules_itest/logger"
 	"rules_itest/runner/topological"
 	"rules_itest/svclib"
 )
+
+// We need to use process groups to reliably tear down services and their descendants.
+// This is especially important in hot-reload mode, where you need to restart the child
+// and have it bind the same port.
+// However, we don't want to do this in tests, because Bazel will already terminate the
+// test process (svcinit) and all its children.
+// If we were to start new process groups in tests, we could leak children (at least on Mac).
+var shouldUseProcessGroups = runtime.GOOS != "windows" && os.Getenv("BAZEL_TEST") != "1"
 
 type ServiceSpecs = map[string]svclib.VersionedServiceSpec
 
@@ -108,7 +118,7 @@ func computeUpdateActions(currentServices, newServices ServiceSpecs) updateActio
 		// We technically don't need a restart if the change is the list of deps.
 		// But that should not be a common use case, so it's not worth the complexity.
 		if !reflect.DeepEqual(service, newService) {
-			fmt.Println(label + " definition or code has changed, restarting...")
+			log.Printf(colorize(service) + " definition or code has changed, restarting...")
 			if service.HotReloadable && reflect.DeepEqual(service.ServiceSpec, newService.ServiceSpec) {
 				// The only difference is the Version. Trust the service that
 				// it prefers to receive the ibazel reload command.
@@ -194,6 +204,10 @@ func prepareServiceInstance(ctx context.Context, s svclib.VersionedServiceSpec) 
 	cmd.Stdout = logger.New(s.Label+"> ", s.Color, os.Stdout)
 	cmd.Stderr = logger.New(s.Label+"> ", s.Color, os.Stderr)
 
+	if shouldUseProcessGroups {
+		setPgid(cmd)
+	}
+
 	// Even if a child process exits, Wait will block until the I/O pipes are closed.
 	// They may have been forwarded to an orphaned child, so we disable that behavior to unblock exit.
 	if s.Type == "service" {
@@ -205,6 +219,7 @@ func prepareServiceInstance(ctx context.Context, s svclib.VersionedServiceSpec) 
 		Cmd:                  cmd,
 
 		startErrFn: sync.OnceValue(cmd.Start),
+		waitErrFn:  sync.OnceValue(cmd.Wait),
 	}
 
 	if s.HotReloadable {
@@ -218,7 +233,11 @@ func prepareServiceInstance(ctx context.Context, s svclib.VersionedServiceSpec) 
 }
 
 func stopInstance(serviceInstance *ServiceInstance) {
-	serviceInstance.Cmd.Process.Kill()
+	pid := serviceInstance.Cmd.Process.Pid
+	if shouldUseProcessGroups {
+		pid = -pid
+	}
+	syscall.Kill(pid, syscall.SIGKILL)
 	serviceInstance.Cmd.Wait()
 
 	for serviceInstance.Cmd.ProcessState == nil {

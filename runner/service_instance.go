@@ -28,6 +28,7 @@ type ServiceInstance struct {
 	startDuration time.Duration
 
 	startErrFn func() error
+	waitErrFn  func() error
 
 	mu     sync.Mutex
 	runErr error
@@ -51,7 +52,7 @@ func (s *ServiceInstance) WaitUntilHealthy(ctx context.Context) error {
 
 	coloredLabel := colorize(s.VersionedServiceSpec)
 	if s.Type == "task" {
-		err := s.Wait()
+		err := s.waitErrFn()
 		log.Printf("%s completed.\n", coloredLabel)
 		return err
 	}
