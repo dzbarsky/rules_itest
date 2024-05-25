@@ -385,11 +385,18 @@ func augmentServiceSpecs(
 				s.Args[i] = strings.ReplaceAll(s.Args[i], "$${PORT}", port)
 			}
 			s.HttpHealthCheckAddress = strings.ReplaceAll(s.HttpHealthCheckAddress, "$${PORT}", port)
+			for i := range s.ServiceSpec.HealthCheckArgs {
+				s.HealthCheckArgs[i] = strings.ReplaceAll(s.HealthCheckArgs[i], "$${PORT}", port)
+			}
 		}
 
 		for i := range s.Args {
 			s.Args[i] = strings.ReplaceAll(s.Args[i], "$${TMPDIR}", tmpDir)
 			s.Args[i] = strings.ReplaceAll(s.Args[i], "$${SOCKET_DIR}", socketDir)
+		}
+		for i := range s.HealthCheckArgs {
+			s.HealthCheckArgs[i] = strings.ReplaceAll(s.HealthCheckArgs[i], "$${TMPDIR}", tmpDir)
+			s.HealthCheckArgs[i] = strings.ReplaceAll(s.HealthCheckArgs[i], "$${SOCKET_DIR}", socketDir)
 		}
 
 		versionedServiceSpecs[label] = s
@@ -408,6 +415,9 @@ func augmentServiceSpecs(
 			spec.HttpHealthCheckAddress = strings.ReplaceAll(spec.HttpHealthCheckAddress, r.Old, r.New)
 			for i := range spec.Args {
 				spec.Args[i] = strings.ReplaceAll(spec.Args[i], r.Old, r.New)
+			}
+			for i := range spec.ServiceSpec.HealthCheckArgs {
+				spec.HealthCheckArgs[i] = strings.ReplaceAll(spec.HealthCheckArgs[i], r.Old, r.New)
 			}
 		}
 		versionedServiceSpecs[label] = spec

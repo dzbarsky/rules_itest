@@ -36,22 +36,6 @@ mysql_impl(
 # =================================================================================================== #
 # ============================================ Socket version ======================================= #
 # =================================================================================================== #
-genrule(
-    name = "gen_socket_health_check",
-    srcs = [":mysql_cli"],
-    outs = ["socket_health_check.sh"],
-    cmd = """echo '#!/bin/sh
-MYSQL_CLI=$(rootpath :mysql_cli)
-set -x
-exec "$$MYSQL_CLI" --no-defaults --socket "$$SOCKET_DIR/mysql.sock" --user user --password="password" -e "SELECT 1"' > $@""",
-)
-
-sh_binary(
-    name = "socket_health_check",
-    srcs = ["socket_health_check.sh"],
-    data = [":mysql_cli"],
-)
-
 itest_service(
     name = "mysql_listening_on_socket",
     args = [
@@ -61,30 +45,22 @@ itest_service(
     ],
     exe = ":with_migrations",
     health_check = ":socket_health_check",
+    health_check_args = [
+        "--no-defaults",
+        "--socket",
+        "$${SOCKET_DIR}/mysql.sock",
+        "--user",
+        "user",
+        "--password=password",
+        "-e",
+        "SELECT 1",
+    ],
     visibility = ["//visibility:public"],
 )
 
 # =================================================================================================== #
 # ============================================ Port version ======================================= #
 # =================================================================================================== #
-
-sh_binary(
-    name = "port_health_check",
-    srcs = ["port_health_check.sh"],
-    data = [":mysql_cli"],
-)
-
-genrule(
-    name = "gen_port_health_check",
-    srcs = [":mysql_cli"],
-    outs = ["port_health_check.sh"],
-    cmd = """echo '#!/bin/sh
-MYSQL_CLI=$(rootpath :mysql_cli)
-PORT=$$($$GET_ASSIGNED_PORT_BIN @@//mysql:mysql_listening_on_port)
-set -x
-exec "$$MYSQL_CLI" --no-defaults --protocol tcp --host 127.0.0.1 --port "$$PORT" --user root -e "SELECT 1"' > $@""",
-)
-
 itest_service(
     name = "mysql_listening_on_port",
     args = [
@@ -95,6 +71,19 @@ itest_service(
     ],
     autoassign_port = True,
     exe = ":with_migrations",
-    health_check = ":port_health_check",
+    health_check = ":mysql_cli",
+    health_check_args = [
+        "--no-defaults",
+        "--protocol",
+        "tcp",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "$${PORT}",
+        "--user",
+        "root",
+        "-e",
+        "SELECT 1",
+    ],
     visibility = ["//visibility:public"],
 )

@@ -149,6 +149,12 @@ def _itest_service_impl(ctx):
         extra_service_spec_kwargs["health_check"] = to_rlocation_path(ctx, ctx.executable.health_check)
         extra_exe_runfiles.append(ctx.attr.health_check.default_runfiles)
 
+    health_check_args = [
+        ctx.expand_location(arg, targets = ctx.attr.data)
+        for arg in ctx.attr.health_check_args
+    ]
+    extra_service_spec_kwargs["health_check_args"] = health_check_args
+
     return _itest_binary_impl(ctx, extra_service_spec_kwargs, extra_exe_runfiles)
 
 _itest_service_attrs = _itest_binary_attrs | {
@@ -164,9 +170,9 @@ _itest_service_attrs = _itest_binary_attrs | {
         The service-port mapping is a JSON string -> int map propagated through the `ASSIGNED_PORTS` env var.
         For example, a port can be retrieved with the following JS code:
         `JSON.parse(process.env["ASSIGNED_PORTS"])["@@//label/for:service"]`.
-        
+
         Alternately, the env will also contain the location of a binary that can return the port, for contexts without a readily-accessible JSON parser.
-        For example, the following Bash command: 
+        For example, the following Bash command:
         `PORT=$($GET_ASSIGNED_PORT_BIN @@//label/for:service)`""",
     ),
     "named_ports": attr.string_list(
@@ -183,6 +189,9 @@ _itest_service_attrs = _itest_binary_attrs | {
         doc = """If set, the service manager will execute this binary to check if the service came up in a healthy state.
         This check will be retried until it exits with a 0 exit code. When used in conjunction with autoassigned ports, use
         one of the methods described in `autoassign_port` to locate the service.""",
+    ),
+    "health_check_args": attr.string_list(
+        doc = """Arguments to pass to the health_check binary. The various defined ports will be substituted prior to be given to the health_check binary.""",
     ),
     "hot_reloadable": attr.bool(
         doc = """If set to True, the service manager will propagate ibazel's reload notificaiton over stdin instead of restarting the service.
@@ -311,7 +320,7 @@ service_test = rule(
     attrs = _service_test_attrs,
     test = True,
     doc = """Brings up a set of services/tasks and runs a test target against them.
-    
+
 This can be used to customize which services a particular test needs while being able to bring them up in an easy and consistent way.
 
 Example usage:

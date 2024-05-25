@@ -34,7 +34,7 @@ type ServiceInstance struct {
 	runErr error
 }
 
-func (s *ServiceInstance) Start(ctx context.Context) error {
+func (s *ServiceInstance) Start(_ context.Context) error {
 	s.startTime = time.Now()
 	return s.startErrFn()
 }
@@ -74,14 +74,18 @@ func (s *ServiceInstance) WaitUntilHealthy(ctx context.Context) error {
 			var resp *http.Response
 			resp, err = http.DefaultClient.Get(s.HttpHealthCheckAddress)
 			if resp != nil {
-				defer resp.Body.Close()
 				if resp.StatusCode != http.StatusOK {
 					err = fmt.Errorf("healthcheck for %s failed: %v", coloredLabel, resp)
+				}
+
+				closeErr := resp.Body.Close()
+				if closeErr != nil {
+					log.Printf("error closing http body %v", closeErr)
 				}
 			}
 
 		} else if s.HealthCheck != "" {
-			cmd := exec.CommandContext(ctx, s.HealthCheck)
+			cmd := exec.CommandContext(ctx, s.HealthCheck, s.VersionedServiceSpec.HealthCheckArgs...)
 			cmd.Stdout = logger.New(s.Label+"? ", s.Color, os.Stdout)
 			cmd.Stderr = logger.New(s.Label+"? ", s.Color, os.Stderr)
 			err = cmd.Run()

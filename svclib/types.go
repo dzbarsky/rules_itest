@@ -10,6 +10,7 @@ type ServiceSpec struct {
 	Exe                    string            `json:"exe"`
 	HttpHealthCheckAddress string            `json:"http_health_check_address"`
 	HealthCheck            string            `json:"health_check"`
+	HealthCheckArgs        []string          `json:"health_check_args"`
 	VersionFile            string            `json:"version_file"`
 	Deps                   []string          `json:"deps"`
 	AutoassignPort         bool              `json:"autoassign_port"`
