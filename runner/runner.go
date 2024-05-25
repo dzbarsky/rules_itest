@@ -237,6 +237,10 @@ func prepareServiceInstance(ctx context.Context, s svclib.VersionedServiceSpec) 
 }
 
 func stopInstance(serviceInstance *ServiceInstance) {
+	if serviceInstance.Cmd.Process == nil {
+		return
+	}
+
 	pid := serviceInstance.Cmd.Process.Pid
 	if shouldUseProcessGroups {
 		pid = -pid
