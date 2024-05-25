@@ -9,7 +9,6 @@ import (
 	"reflect"
 	"runtime"
 	"sync"
-	"syscall"
 	"time"
 
 	"rules_itest/logger"
@@ -241,11 +240,7 @@ func stopInstance(serviceInstance *ServiceInstance) {
 		return
 	}
 
-	pid := serviceInstance.Cmd.Process.Pid
-	if shouldUseProcessGroups {
-		pid = -pid
-	}
-	syscall.Kill(pid, syscall.SIGKILL)
+	killGroup(serviceInstance.Cmd)
 	serviceInstance.Cmd.Wait()
 
 	for serviceInstance.Cmd.ProcessState == nil {
