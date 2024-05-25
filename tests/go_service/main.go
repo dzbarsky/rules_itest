@@ -17,9 +17,14 @@ func main() {
 	sleepTime := flag.Duration("sleep-time", 0, "How long to sleep before binding the port")
 	busyWaitTime := flag.Duration("busy-time", 0, "How long to busy-wait before binding the port")
 	fileToOpen := flag.String("file-to-open", "", "A file to open to check runfiles")
-	port := flag.Int("port", 0, "Port to bind")
+	port := flag.String("port", "", "Port to bind")
 
 	flag.Parse()
+
+	if *port == "" {
+		portStr := os.Getenv("PORT")
+		port = &portStr
+	}
 
 	if *fileToOpen != "" {
 		resolvedPath, err := runfiles.Rlocation(*fileToOpen)
@@ -57,7 +62,7 @@ func main() {
 		w.Write([]byte(strconv.Itoa(fibSink)))
 	})
 
-	http.ListenAndServe("127.0.0.1:"+strconv.Itoa(*port), nil)
+	http.ListenAndServe("127.0.0.1:"+*port, nil)
 }
 
 func fib(n int) int {

@@ -388,6 +388,9 @@ func augmentServiceSpecs(
 			for i := range s.ServiceSpec.HealthCheckArgs {
 				s.HealthCheckArgs[i] = strings.ReplaceAll(s.HealthCheckArgs[i], "$${PORT}", port)
 			}
+			for k, v := range s.Env {
+				s.Env[k] = strings.ReplaceAll(v, "$${PORT}", port)
+			}
 		}
 
 		for i := range s.Args {
@@ -397,6 +400,10 @@ func augmentServiceSpecs(
 		for i := range s.HealthCheckArgs {
 			s.HealthCheckArgs[i] = strings.ReplaceAll(s.HealthCheckArgs[i], "$${TMPDIR}", tmpDir)
 			s.HealthCheckArgs[i] = strings.ReplaceAll(s.HealthCheckArgs[i], "$${SOCKET_DIR}", socketDir)
+		}
+		for k, v := range s.Env {
+			s.Env[k] = strings.ReplaceAll(v, "$${TMPDIR}", tmpDir)
+			s.Env[k] = strings.ReplaceAll(v, "$${SOCKET_DIR}", socketDir)
 		}
 
 		versionedServiceSpecs[label] = s
@@ -410,15 +417,23 @@ func augmentServiceSpecs(
 		})
 	}
 
-	for label, spec := range versionedServiceSpecs {
+	replaceAllPorts := func(s string) string {
 		for _, r := range replacements {
-			spec.HttpHealthCheckAddress = strings.ReplaceAll(spec.HttpHealthCheckAddress, r.Old, r.New)
-			for i := range spec.Args {
-				spec.Args[i] = strings.ReplaceAll(spec.Args[i], r.Old, r.New)
-			}
-			for i := range spec.ServiceSpec.HealthCheckArgs {
-				spec.HealthCheckArgs[i] = strings.ReplaceAll(spec.HealthCheckArgs[i], r.Old, r.New)
-			}
+			s = strings.ReplaceAll(s, r.Old, r.New)
+		}
+		return s
+	}
+
+	for label, spec := range versionedServiceSpecs {
+		spec.HttpHealthCheckAddress = replaceAllPorts(spec.HttpHealthCheckAddress)
+		for i := range spec.Args {
+			spec.Args[i] = replaceAllPorts(spec.Args[i])
+		}
+		for i := range spec.HealthCheckArgs {
+			spec.HealthCheckArgs[i] = replaceAllPorts(spec.HealthCheckArgs[i])
+		}
+		for k, v := range spec.Env {
+			spec.Env[k] = replaceAllPorts(v)
 		}
 		versionedServiceSpecs[label] = spec
 	}
