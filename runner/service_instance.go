@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"strings"
 	"sync"
 	"time"
 
@@ -81,7 +82,7 @@ func (s *ServiceInstance) WaitUntilHealthy(ctx context.Context) error {
 			}
 
 		} else if s.HealthCheck != "" {
-			log.Printf("CMD Healthchecking %s (pid %d) : %v\n", s.Colorize(s.HealthCheckLabel), s.Process.Pid, s.VersionedServiceSpec.HealthCheckArgs)
+			log.Printf("CMD Healthchecking %s (pid %d) : %s %v\n", coloredLabel, s.Process.Pid, s.Colorize(s.HealthCheckLabel), strings.Join(s.VersionedServiceSpec.HealthCheckArgs, " "))
 			cmd := exec.CommandContext(ctx, s.HealthCheck, s.VersionedServiceSpec.HealthCheckArgs...)
 			cmd.Stdout = logger.New(s.Label+"? ", s.Color, os.Stdout)
 			cmd.Stderr = logger.New(s.Label+"? ", s.Color, os.Stderr)
