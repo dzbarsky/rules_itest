@@ -44,7 +44,7 @@ itest_service(
         "$${SOCKET_DIR}/mysql.sock",
     ],
     exe = ":with_migrations",
-    health_check = ":socket_health_check",
+    health_check = ":mysql_cli",
     health_check_args = [
         "--no-defaults",
         "--socket",
