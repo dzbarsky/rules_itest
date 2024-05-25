@@ -68,9 +68,9 @@ func (s *ServiceInstance) WaitUntilHealthy(ctx context.Context) error {
 			return err
 		}
 
-		log.Printf("Healthchecking %s (pid %d)\n", coloredLabel, s.Process.Pid)
-
 		if s.HttpHealthCheckAddress != "" {
+			log.Printf("HTTP Healthchecking %s (pid %d) : %s\n", coloredLabel, s.Process.Pid, s.HttpHealthCheckAddress)
+
 			var resp *http.Response
 			resp, err = http.DefaultClient.Get(s.HttpHealthCheckAddress)
 			if resp != nil {
@@ -85,6 +85,7 @@ func (s *ServiceInstance) WaitUntilHealthy(ctx context.Context) error {
 			}
 
 		} else if s.HealthCheck != "" {
+			log.Printf("CMD Healthchecking %s (pid %d) : %v\n", colorize(s.VersionedServiceSpec), s.Process.Pid, s.VersionedServiceSpec.HealthCheckArgs)
 			cmd := exec.CommandContext(ctx, s.HealthCheck, s.VersionedServiceSpec.HealthCheckArgs...)
 			cmd.Stdout = logger.New(s.Label+"? ", s.Color, os.Stdout)
 			cmd.Stderr = logger.New(s.Label+"? ", s.Color, os.Stderr)
