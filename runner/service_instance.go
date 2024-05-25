@@ -15,10 +15,6 @@ import (
 	"rules_itest/svclib"
 )
 
-func colorize(s svclib.VersionedServiceSpec) string {
-	return s.Color + s.Label + logger.Reset
-}
-
 type ServiceInstance struct {
 	svclib.VersionedServiceSpec
 	*exec.Cmd
@@ -50,7 +46,7 @@ func (s *ServiceInstance) WaitUntilHealthy(ctx context.Context) error {
 		return nil
 	}
 
-	coloredLabel := colorize(s.VersionedServiceSpec)
+	coloredLabel := s.Colorize(s.Label)
 	if s.Type == "task" {
 		err := s.waitErrFn()
 		log.Printf("%s completed.\n", coloredLabel)
@@ -85,7 +81,7 @@ func (s *ServiceInstance) WaitUntilHealthy(ctx context.Context) error {
 			}
 
 		} else if s.HealthCheck != "" {
-			log.Printf("CMD Healthchecking %s (pid %d) : %v\n", colorize(s.VersionedServiceSpec), s.Process.Pid, s.VersionedServiceSpec.HealthCheckArgs)
+			log.Printf("CMD Healthchecking %s (pid %d) : %v\n", s.Colorize(s.HealthCheckLabel), s.Process.Pid, s.VersionedServiceSpec.HealthCheckArgs)
 			cmd := exec.CommandContext(ctx, s.HealthCheck, s.VersionedServiceSpec.HealthCheckArgs...)
 			cmd.Stdout = logger.New(s.Label+"? ", s.Color, os.Stdout)
 			cmd.Stderr = logger.New(s.Label+"? ", s.Color, os.Stderr)

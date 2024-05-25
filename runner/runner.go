@@ -46,6 +46,10 @@ func New(ctx context.Context, serviceSpecs ServiceSpecs) (*runner, error) {
 	return r, nil
 }
 
+func colorize(s svclib.VersionedServiceSpec) string {
+	return s.Colorize(s.Label)
+}
+
 func (r *runner) StartAll() ([]topological.Task, error) {
 	tasks := allTasks(r.serviceInstances, func(ctx context.Context, service *ServiceInstance) error {
 		if service.Type == "group" {

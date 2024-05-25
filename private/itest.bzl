@@ -146,6 +146,7 @@ def _itest_service_impl(ctx):
     extra_exe_runfiles = []
 
     if ctx.attr.health_check:
+        extra_service_spec_kwargs["health_check_label"] = str(ctx.attr.health_check.label)
         extra_service_spec_kwargs["health_check"] = to_rlocation_path(ctx, ctx.executable.health_check)
         extra_exe_runfiles.append(ctx.attr.health_check.default_runfiles)
 
