@@ -8,4 +8,7 @@ go_library(
     ],
     importpath = "rules_itest/svclib",
     visibility = ["//visibility:public"],
+    deps = [
+        "//logger",
+    ],
 )

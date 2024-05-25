@@ -8,16 +8,13 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"strings"
 	"sync"
 	"time"
 
 	"rules_itest/logger"
 	"rules_itest/svclib"
 )
-
-func colorize(s svclib.VersionedServiceSpec) string {
-	return s.Color + s.Label + logger.Reset
-}
 
 type ServiceInstance struct {
 	svclib.VersionedServiceSpec
@@ -34,7 +31,7 @@ type ServiceInstance struct {
 	runErr error
 }
 
-func (s *ServiceInstance) Start(ctx context.Context) error {
+func (s *ServiceInstance) Start(_ context.Context) error {
 	s.startTime = time.Now()
 	return s.startErrFn()
 }
@@ -50,7 +47,7 @@ func (s *ServiceInstance) WaitUntilHealthy(ctx context.Context) error {
 		return nil
 	}
 
-	coloredLabel := colorize(s.VersionedServiceSpec)
+	coloredLabel := s.Colorize(s.Label)
 	if s.Type == "task" {
 		err := s.waitErrFn()
 		log.Printf("%s completed.\n", coloredLabel)
@@ -68,20 +65,25 @@ func (s *ServiceInstance) WaitUntilHealthy(ctx context.Context) error {
 			return err
 		}
 
-		log.Printf("Healthchecking %s (pid %d)\n", coloredLabel, s.Process.Pid)
-
 		if s.HttpHealthCheckAddress != "" {
+			log.Printf("HTTP Healthchecking %s (pid %d) : %s\n", coloredLabel, s.Process.Pid, s.HttpHealthCheckAddress)
+
 			var resp *http.Response
 			resp, err = http.DefaultClient.Get(s.HttpHealthCheckAddress)
 			if resp != nil {
-				defer resp.Body.Close()
 				if resp.StatusCode != http.StatusOK {
 					err = fmt.Errorf("healthcheck for %s failed: %v", coloredLabel, resp)
+				}
+
+				closeErr := resp.Body.Close()
+				if closeErr != nil {
+					log.Printf("error closing http body %v", closeErr)
 				}
 			}
 
 		} else if s.HealthCheck != "" {
-			cmd := exec.CommandContext(ctx, s.HealthCheck)
+			log.Printf("CMD Healthchecking %s (pid %d) : %s %v\n", coloredLabel, s.Process.Pid, s.Colorize(s.HealthCheckLabel), strings.Join(s.VersionedServiceSpec.HealthCheckArgs, " "))
+			cmd := exec.CommandContext(ctx, s.HealthCheck, s.VersionedServiceSpec.HealthCheckArgs...)
 			cmd.Stdout = logger.New(s.Label+"? ", s.Color, os.Stdout)
 			cmd.Stderr = logger.New(s.Label+"? ", s.Color, os.Stderr)
 			err = cmd.Run()
