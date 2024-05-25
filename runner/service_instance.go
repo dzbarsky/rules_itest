@@ -31,7 +31,7 @@ type ServiceInstance struct {
 	runErr error
 }
 
-func (s *ServiceInstance) Start(_ context.Context) error {
+func (s *ServiceInstance) Start() error {
 	s.startTime = time.Now()
 	return s.startErrFn()
 }

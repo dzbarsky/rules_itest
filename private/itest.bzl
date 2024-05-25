@@ -192,7 +192,7 @@ _itest_service_attrs = _itest_binary_attrs | {
         one of the methods described in `autoassign_port` to locate the service.""",
     ),
     "health_check_args": attr.string_list(
-        doc = """Arguments to pass to the health_check binary. The various defined ports will be substituted prior to be given to the health_check binary.""",
+        doc = """Arguments to pass to the health_check binary. The various defined ports will be substituted prior to being given to the health_check binary.""",
     ),
     "hot_reloadable": attr.bool(
         doc = """If set to True, the service manager will propagate ibazel's reload notificaiton over stdin instead of restarting the service.

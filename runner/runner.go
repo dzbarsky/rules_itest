@@ -56,7 +56,7 @@ func (r *runner) StartAll() ([]topological.Task, error) {
 			return nil
 		}
 		log.Printf("Starting %s %v\n", colorize(service.VersionedServiceSpec), service.Args[1:])
-		startErr := service.Start(ctx)
+		startErr := service.Start()
 		if startErr != nil {
 			return startErr
 		}
