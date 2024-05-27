@@ -295,7 +295,7 @@ def _service_test_impl(ctx):
         ctx.attr.test.default_runfiles,
     ])
 
-    env = _run_environment(ctx, service_specs_file)
+    env = ctx.attr.env | _run_environment(ctx, service_specs_file)
     env["SVCINIT_TEST_RLOCATION_PATH"] = to_rlocation_path(ctx, ctx.executable.test)
 
     return [

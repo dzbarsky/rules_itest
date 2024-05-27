@@ -93,20 +93,20 @@ itest_service(
 
 itest_service(
     name = "autoassigned_env",
+    autoassign_port = True,
     env = {
         "PORT": "$${PORT}",
     },
-    autoassign_port = True,
     exe = "//go_service",
     http_health_check_address = "http://127.0.0.1:$${PORT}",
 )
 
 itest_service(
     name = "autoassigned_env2",
+    autoassign_port = True,
     env = {
         "PORT": "$${@@//:autoassigned_env2}",
     },
-    autoassign_port = True,
     exe = "//go_service",
     http_health_check_address = "http://127.0.0.1:$${PORT}",
 )
