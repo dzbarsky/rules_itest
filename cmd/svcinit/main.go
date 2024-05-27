@@ -393,23 +393,14 @@ func augmentServiceSpecs(
 			}
 		}
 
-		for i := range s.Args {
-			s.Args[i] = strings.ReplaceAll(s.Args[i], "$${TMPDIR}", tmpDir)
-			s.Args[i] = strings.ReplaceAll(s.Args[i], "$${SOCKET_DIR}", socketDir)
-		}
-		for i := range s.HealthCheckArgs {
-			s.HealthCheckArgs[i] = strings.ReplaceAll(s.HealthCheckArgs[i], "$${TMPDIR}", tmpDir)
-			s.HealthCheckArgs[i] = strings.ReplaceAll(s.HealthCheckArgs[i], "$${SOCKET_DIR}", socketDir)
-		}
-		for k, v := range s.Env {
-			s.Env[k] = strings.ReplaceAll(v, "$${TMPDIR}", tmpDir)
-			s.Env[k] = strings.ReplaceAll(v, "$${SOCKET_DIR}", socketDir)
-		}
-
 		versionedServiceSpecs[label] = s
 	}
 
-	replacements := make([]Replacement, 0, len(ports))
+	replacements := make([]Replacement, 0, 2+len(ports))
+	replacements = append(replacements,
+		Replacement{Old: "$${TMPDIR}", New: tmpDir},
+		Replacement{Old: "$${SOCKET_DIR}", New: socketDir},
+	)
 	for label, port := range ports {
 		replacements = append(replacements, Replacement{
 			Old: "$${" + label + "}",
