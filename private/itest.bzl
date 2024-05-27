@@ -136,12 +136,21 @@ def _itest_binary_impl(ctx, extra_service_spec_kwargs, extra_exe_runfiles = []):
     ]
 
 def _itest_service_impl(ctx):
+    unit = ctx.attr.health_check_interval
+    for i in range(len(ctx.attr.health_check_interval)):
+        if unit[0].isdigit():
+            unit = unit[1:]
+
+    if unit not in ["ms", "s", "m", "h", "d"]:
+        fail("Invalid unit for health_check_interval: %s" % unit)
+
     extra_service_spec_kwargs = {
         "type": "service",
         "http_health_check_address": ctx.attr.http_health_check_address,
         "autoassign_port": ctx.attr.autoassign_port,
         "named_ports": ctx.attr.named_ports,
         "hot_reloadable": ctx.attr.hot_reloadable,
+        "health_check_interval": ctx.attr.health_check_interval,
     }
     extra_exe_runfiles = []
 
@@ -150,11 +159,11 @@ def _itest_service_impl(ctx):
         extra_service_spec_kwargs["health_check"] = to_rlocation_path(ctx, ctx.executable.health_check)
         extra_exe_runfiles.append(ctx.attr.health_check.default_runfiles)
 
-    health_check_args = [
-        ctx.expand_location(arg, targets = ctx.attr.data)
-        for arg in ctx.attr.health_check_args
-    ]
-    extra_service_spec_kwargs["health_check_args"] = health_check_args
+        health_check_args = [
+            ctx.expand_location(arg, targets = ctx.attr.data)
+            for arg in ctx.attr.health_check_args
+        ]
+        extra_service_spec_kwargs["health_check_args"] = health_check_args
 
     return _itest_binary_impl(ctx, extra_service_spec_kwargs, extra_exe_runfiles)
 
@@ -193,6 +202,10 @@ _itest_service_attrs = _itest_binary_attrs | {
     ),
     "health_check_args": attr.string_list(
         doc = """Arguments to pass to the health_check binary. The various defined ports will be substituted prior to being given to the health_check binary.""",
+    ),
+    "health_check_interval": attr.string(
+        default = "200ms",
+        doc = "The duration between each health check. The syntax is based on common time duration with a number, followed by the time unit. For example, `200ms`, `1s`, `2m`, `3h`, `4d`.",
     ),
     "hot_reloadable": attr.bool(
         doc = """If set to True, the service manager will propagate ibazel's reload notificaiton over stdin instead of restarting the service.
