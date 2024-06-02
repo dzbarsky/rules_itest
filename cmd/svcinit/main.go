@@ -149,9 +149,13 @@ func main() {
 			testPath, err := runfiles.Rlocation(os.Getenv("SVCINIT_TEST_RLOCATION_PATH"))
 			must(err)
 
+			testEnv, err := buildTestEnv(ports)
+			must(err)
+
 			fmt.Println("")
 			log.Printf("Executing test: %s, %s\n", testPath, strings.Join(testArgs, " "))
 			testCmd = exec.CommandContext(ctx, testPath, testArgs...)
+			testCmd.Env = testEnv
 			testCmd.Stdout = os.Stdout
 			testCmd.Stderr = os.Stderr
 
@@ -435,4 +439,46 @@ func augmentServiceSpecs(
 type Replacement struct {
 	Old string
 	New string
+}
+
+func buildTestEnv(ports svclib.Ports) ([]string, error) {
+	testEnvPath, err := runfiles.Rlocation(os.Getenv("SVCINIT_TEST_ENV_RLOCATION_PATH"))
+	if err != nil {
+		panic(err)
+	}
+
+	testEnvData, err := os.ReadFile(testEnvPath)
+	if err != nil {
+		panic(err)
+	}
+
+	env := map[string]string{}
+	err = json.Unmarshal(testEnvData, &env)
+	if err != nil {
+		panic(err)
+	}
+
+	replacements := make([]Replacement, 0, len(ports))
+	for label, port := range ports {
+		replacements = append(replacements, Replacement{
+			Old: "$${" + label + "}",
+			New: port,
+		})
+	}
+
+	replaceAllPorts := func(s string) string {
+		for _, r := range replacements {
+			s = strings.ReplaceAll(s, r.Old, r.New)
+		}
+		return s
+	}
+
+	// Note, this can technically specify the same var multiple times.
+	// Last one wins - hope that's what you wanted!
+	baseEnv := os.Environ()
+	for k, v := range env {
+		baseEnv = append(baseEnv, k+"="+replaceAllPorts(v))
+	}
+
+	return baseEnv, nil
 }

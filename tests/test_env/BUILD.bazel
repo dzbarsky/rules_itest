@@ -5,14 +5,27 @@ env = {
     "ITEST_ENV_VAR": "ITEST_ENV_VAR_VALUE",
 }
 
+
 go_test(
     name = "test_env_test",
     srcs = ["env_test.go"],
     env = env,
+    tags = ["manual"],
 )
 
 service_test(
-    name = "test_env_service_test",
+    name = "env_specified_in_base",
     test = ":test_env_test",
+)
+
+go_test(
+    name = "_env_not_specified",
+    srcs = ["env_test.go"],
+    tags = ["manual"],
+)
+
+service_test(
+    name = "env_specified_in_service_test",
     env = env,
+    test = ":_env_not_specified",
 )
