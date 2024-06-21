@@ -135,14 +135,20 @@ def _itest_binary_impl(ctx, extra_service_spec_kwargs, extra_exe_runfiles = []):
         _ServiceGroupInfo(services = services),
     ]
 
-def _itest_service_impl(ctx):
-    unit = ctx.attr.health_check_interval
-    for i in range(len(ctx.attr.health_check_interval)):
+def _validate_duration(name, s):
+    unit = s
+    for _ in range(len(s)):
         if unit[0].isdigit():
             unit = unit[1:]
 
     if unit not in ["ms", "s", "m", "h", "d"]:
-        fail("Invalid unit for health_check_interval: %s" % unit)
+        fail("Invalid unit for %s: %s" % (name, unit))
+
+def _itest_service_impl(ctx):
+    _validate_duration("health_check_interval", ctx.attr.health_check_interval)
+
+    if ctx.attr.health_check_timeout:
+        _validate_duration("health_check_timeout", ctx.attr.health_check_timeout)
 
     extra_service_spec_kwargs = {
         "type": "service",
@@ -151,6 +157,7 @@ def _itest_service_impl(ctx):
         "named_ports": ctx.attr.named_ports,
         "hot_reloadable": ctx.attr.hot_reloadable,
         "health_check_interval": ctx.attr.health_check_interval,
+        "health_check_timeout": ctx.attr.health_check_timeout,
     }
     extra_exe_runfiles = []
 
@@ -206,6 +213,10 @@ _itest_service_attrs = _itest_binary_attrs | {
     "health_check_interval": attr.string(
         default = "200ms",
         doc = "The duration between each health check. The syntax is based on common time duration with a number, followed by the time unit. For example, `200ms`, `1s`, `2m`, `3h`, `4d`.",
+    ),
+    "health_check_timeout": attr.string(
+        default = "",
+        doc = "The timeout to wait for the health check. The syntax is based on common time duration with a number, followed by the time unit. For example, `200ms`, `1s`, `2m`, `3h`, `4d`. If empty or not set, the health check will not have a timeout.",
     ),
     "hot_reloadable": attr.bool(
         doc = """If set to True, the service manager will propagate ibazel's reload notificaiton over stdin instead of restarting the service.

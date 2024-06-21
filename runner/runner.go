@@ -59,6 +59,15 @@ func (r *runner) StartAll() ([]topological.Task, error) {
 		if startErr != nil {
 			return startErr
 		}
+		if service.VersionedServiceSpec.HealthCheckTimeout != "" {
+			timeout, err := time.ParseDuration(service.VersionedServiceSpec.HealthCheckTimeout)
+			if err != nil {
+				log.Printf("failed to parse health check timeout, falling back to no timeout: %v", err)
+			}
+			timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
+			ctx = timeoutCtx
+			defer cancel()
+		}
 		return service.WaitUntilHealthy(ctx)
 	})
 	starter := topological.NewRunner(tasks)

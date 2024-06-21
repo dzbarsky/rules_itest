@@ -15,6 +15,7 @@ type ServiceSpec struct {
 	HealthCheckLabel       string            `json:"health_check_label"`
 	HealthCheckArgs        []string          `json:"health_check_args"`
 	HealthCheckInterval    string            `json:"health_check_interval"`
+	HealthCheckTimeout     string            `json:"health_check_timeout"`
 	VersionFile            string            `json:"version_file"`
 	Deps                   []string          `json:"deps"`
 	AutoassignPort         bool              `json:"autoassign_port"`

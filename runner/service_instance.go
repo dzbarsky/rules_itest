@@ -56,7 +56,7 @@ func (s *ServiceInstance) WaitUntilHealthy(ctx context.Context) error {
 
 	sleepDuration, err := time.ParseDuration(s.VersionedServiceSpec.HealthCheckInterval)
 	if err != nil {
-		log.Printf("failed to parse time duration, falling back to 200ms: %v", err)
+		log.Printf("failed to parse health check time duration, falling back to 200ms: %v", err)
 		// This should really not happen if we validate it properly in starlark
 		sleepDuration = time.Duration(200) * time.Millisecond
 	}
