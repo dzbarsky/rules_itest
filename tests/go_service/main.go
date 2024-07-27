@@ -16,10 +16,18 @@ var fibSink int
 func main() {
 	sleepTime := flag.Duration("sleep-time", 0, "How long to sleep before binding the port")
 	busyWaitTime := flag.Duration("busy-time", 0, "How long to busy-wait before binding the port")
+	dieAfter := flag.Duration("die-after", 0, "How long to wait before self-destructing")
 	fileToOpen := flag.String("file-to-open", "", "A file to open to check runfiles")
 	port := flag.String("port", "", "Port to bind")
 
 	flag.Parse()
+
+	if *dieAfter != 0 {
+		go func() {
+			<-time.After(*dieAfter)
+			os.Exit(1)
+		}()
+	}
 
 	if *port == "" {
 		portStr := os.Getenv("PORT")

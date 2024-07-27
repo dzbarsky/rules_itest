@@ -5,7 +5,6 @@ env = {
     "ITEST_ENV_VAR": "ITEST_ENV_VAR_VALUE",
 }
 
-
 go_test(
     name = "test_env_test",
     srcs = ["env_test.go"],

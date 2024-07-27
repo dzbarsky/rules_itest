@@ -1,0 +1,37 @@
+load("@rules_go//go:def.bzl", "go_test")
+load("@rules_itest//:itest.bzl", "itest_service", "service_test")
+load("//:must_fail.bzl", "must_fail")
+
+itest_service(
+    name = "crashing_service",
+    args = [
+        "-port",
+        "$${PORT}",
+        "-die-after",
+        "1s",
+    ],
+    autoassign_port = True,
+    exe = "//go_service",
+    http_health_check_address = "http://127.0.0.1:$${PORT}",
+    hygienic = False,
+)
+
+must_fail(
+    name = "crash_test",
+    test = "_crash_test",
+)
+
+service_test(
+    name = "_crash_test",
+    services = [
+        ":crashing_service",
+    ],
+    tags = ["manual"],
+    test = ":crashing_service_test",
+)
+
+go_test(
+    name = "crashing_service_test",
+    srcs = ["crash_test.go"],
+    tags = ["manual"],
+)

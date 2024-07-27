@@ -49,7 +49,7 @@ func colorize(s svclib.VersionedServiceSpec) string {
 	return s.Colorize(s.Label)
 }
 
-func (r *runner) StartAll() ([]topological.Task, error) {
+func (r *runner) StartAll() ([]topological.Task, chan error, error) {
 	tasks := allTasks(r.serviceInstances, func(ctx context.Context, service *ServiceInstance) error {
 		if service.Type == "group" {
 			return nil
@@ -72,7 +72,19 @@ func (r *runner) StartAll() ([]topological.Task, error) {
 	})
 	starter := topological.NewRunner(tasks)
 	err := starter.Run(r.ctx)
-	return starter.CriticalPath(), err
+
+	serviceErrorCh := make(chan error, len(r.serviceInstances))
+	for _, serviceInstance := range r.serviceInstances {
+		// TODO(zbarsky): Can remove the loop var once Go is sufficiently upgraded.
+		go func(serviceInstance *ServiceInstance) {
+			err := serviceInstance.Wait()
+			if err != nil {
+				serviceErrorCh <- fmt.Errorf(colorize(serviceInstance.VersionedServiceSpec) + " exited with error: " + err.Error())
+			}
+		}(serviceInstance)
+	}
+
+	return starter.CriticalPath(), serviceErrorCh, err
 }
 
 func (r *runner) StopAll() (map[string]*os.ProcessState, error) {
@@ -188,11 +200,11 @@ func (r *runner) UpdateSpecsAndRestart(
 	serviceSpecs ServiceSpecs,
 	ibazelCmd []byte,
 ) (
-	[]topological.Task, error,
+	[]topological.Task, chan error, error,
 ) {
 	err := r.UpdateSpecs(serviceSpecs, ibazelCmd)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	return r.StartAll()
 }

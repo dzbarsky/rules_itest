@@ -3,6 +3,8 @@ load("@rules_itest//:itest.bzl", "itest_service", "itest_service_group")
 
 package(default_visibility = ["//visibility:public"])
 
+exports_files(["not.sh"])
+
 gazelle(name = "gazelle")
 
 itest_service(
