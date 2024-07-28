@@ -2,13 +2,51 @@ load("@rules_go//go:def.bzl", "go_binary", "go_library")
 
 go_library(
     name = "go_service_lib",
-    srcs = ["main.go"],
+    srcs = [
+        "main.go",
+        "serve_unix.go",
+        "serve_windows.go",
+    ],
     importpath = "rules_itest/tests/go_service",
     visibility = ["//visibility:private"],
     deps = [
-        "@org_golang_x_sys//unix",
         "@rules_go//go/runfiles:go_default_library",
-    ],
+    ] + select({
+        "@rules_go//go/platform:aix": [
+            "@org_golang_x_sys//unix",
+        ],
+        "@rules_go//go/platform:android": [
+            "@org_golang_x_sys//unix",
+        ],
+        "@rules_go//go/platform:darwin": [
+            "@org_golang_x_sys//unix",
+        ],
+        "@rules_go//go/platform:dragonfly": [
+            "@org_golang_x_sys//unix",
+        ],
+        "@rules_go//go/platform:freebsd": [
+            "@org_golang_x_sys//unix",
+        ],
+        "@rules_go//go/platform:illumos": [
+            "@org_golang_x_sys//unix",
+        ],
+        "@rules_go//go/platform:ios": [
+            "@org_golang_x_sys//unix",
+        ],
+        "@rules_go//go/platform:linux": [
+            "@org_golang_x_sys//unix",
+        ],
+        "@rules_go//go/platform:netbsd": [
+            "@org_golang_x_sys//unix",
+        ],
+        "@rules_go//go/platform:openbsd": [
+            "@org_golang_x_sys//unix",
+        ],
+        "@rules_go//go/platform:solaris": [
+            "@org_golang_x_sys//unix",
+        ],
+        "//conditions:default": [],
+    }),
 )
 
 go_binary(

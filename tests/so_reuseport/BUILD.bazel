@@ -1,6 +1,11 @@
 load("@rules_itest//:itest.bzl", "itest_service")
 load("//:must_fail.bzl", "must_fail")
 
+NOT_WINDOWS = select({
+    "@platforms//os:windows": ["@platforms//:incompatible"],
+    "//conditions:default": [],
+})
+
 itest_service(
     name = "reuseport_service",
     args = [
@@ -13,6 +18,7 @@ itest_service(
     health_check_timeout = "5s",
     http_health_check_address = "http://127.0.0.1:$${PORT}",
     so_reuseport_aware = True,
+    target_compatible_with = NOT_WINDOWS,
 )
 
 itest_service(
@@ -27,11 +33,13 @@ itest_service(
     http_health_check_address = "http://127.0.0.1:$${PORT}",
     so_reuseport_aware = True,
     tags = ["manual"],
+    target_compatible_with = NOT_WINDOWS,
 )
 
 # TODO(zbarsky): this rule is busted, it isn't actually working correctly.
 # May need to bust out real bazel integration tests?
 must_fail(
     name = "no_reuseport_service_hygiene_test",
+    target_compatible_with = NOT_WINDOWS,
     test = "_no_reuseport_service_hygiene_test",
 )

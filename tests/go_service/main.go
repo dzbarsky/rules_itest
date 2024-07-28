@@ -1,19 +1,14 @@
 package main
 
 import (
-	"context"
 	"flag"
-	"fmt"
 	"log"
-	"net"
 	"net/http"
 	"os"
 	"strconv"
-	"syscall"
 	"time"
 
 	"github.com/bazelbuild/rules_go/go/runfiles"
-	"golang.org/x/sys/unix"
 )
 
 var fibSink int
@@ -76,29 +71,7 @@ func main() {
 		w.Write([]byte(strconv.Itoa(fibSink)))
 	})
 
-	lc := net.ListenConfig{
-		Control: func(network, address string, conn syscall.RawConn) error {
-			if !*soReuseport {
-				return nil
-			}
-
-			var setSockoptErr error
-			err := conn.Control(func(fd uintptr) {
-				fmt.Println("SETTING UP SO_REUSEPORT:")
-				setSockoptErr = syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, unix.SO_REUSEPORT, 1)
-			})
-			if err != nil {
-				return err
-			}
-			return setSockoptErr
-		},
-	}
-
-	l, err := lc.Listen(context.Background(), "tcp", "127.0.0.1:"+*port)
-	if err != nil {
-		log.Fatal(err)
-	}
-	http.Serve(l, nil)
+	serve(*port, *soReuseport)
 }
 
 func fib(n int) int {
