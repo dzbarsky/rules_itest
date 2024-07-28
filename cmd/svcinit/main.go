@@ -119,7 +119,7 @@ func main() {
 		}
 	}()
 
-	criticalPath, err := r.StartAll()
+	criticalPath, servicesErrCh, err := r.StartAll()
 	if errors.Is(err, context.Canceled) {
 		_, err := r.StopAll()
 		must(err)
@@ -143,7 +143,7 @@ func main() {
 		must(err)
 
 		var testCmd *exec.Cmd
-		var testErr error
+		testErrCh := make(chan error, 1)
 		if testLabel != "" {
 			testArgs := os.Args[1:]
 			testPath, err := runfiles.Rlocation(os.Getenv("SVCINIT_TEST_RLOCATION_PATH"))
@@ -165,13 +165,30 @@ func main() {
 				panic(err)
 			}
 
-			testErr = testCmd.Wait()
+			go func() {
+				testErrCh <- testCmd.Wait()
 
-			testDuration := time.Since(testStartTime)
-			log.Printf("Test duration: %s\n", testDuration)
+				testDuration := time.Since(testStartTime)
+				log.Printf("Test duration: %s\n", testDuration)
+			}()
 		}
 
 		fmt.Println()
+
+		select {
+		case testErr := <-testErrCh:
+			if testErr != nil {
+				log.Printf("Encountered error during test run: %s\n", testErr)
+				if isOneShot {
+					os.Exit(1)
+				}
+			}
+		case serviceErr := <-servicesErrCh:
+			log.Print(serviceErr)
+			if isOneShot {
+				log.Fatal("Service exited uncleanly, marking test as failed.\n\n")
+			}
+		}
 
 		if isOneShot {
 			buf.WriteString("Target\tUser Time\tSystem Time\n")
@@ -199,13 +216,6 @@ func main() {
 		buf.Reset()
 		err = reportWriter.Flush()
 		must(err)
-
-		if testErr != nil {
-			log.Printf("Encountered error during test run: %s\n", testErr)
-			if isOneShot {
-				os.Exit(1)
-			}
-		}
 
 		if isOneShot {
 			break
@@ -242,7 +252,8 @@ func main() {
 			serviceSpecs, err := augmentServiceSpecs(unversionedSpecs, ports)
 			must(err)
 
-			criticalPath, err = r.UpdateSpecsAndRestart(serviceSpecs, []byte(ibazelCmd))
+			// TODO(zbarsky): what is the right behavior here when services are crashing in ibazel mode?
+			criticalPath, _, err = r.UpdateSpecsAndRestart(serviceSpecs, []byte(ibazelCmd))
 			must(err)
 		}
 	}
