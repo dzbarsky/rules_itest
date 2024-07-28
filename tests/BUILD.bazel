@@ -13,10 +13,10 @@ itest_service(
         "-port",
         "$${PORT}",
     ],
+    autoassign_port = True,
     env = {"foo": "bar"},
     exe = "//go_service",
     http_health_check_address = "http://127.0.0.1:$${PORT}",
-    autoassign_port = True,
 )
 
 # Make sure a degenerate group works.

@@ -5,7 +5,10 @@ go_library(
     srcs = ["main.go"],
     importpath = "rules_itest/tests/go_service",
     visibility = ["//visibility:private"],
-    deps = ["@rules_go//go/runfiles:go_default_library"],
+    deps = [
+        "@org_golang_x_sys//unix",
+        "@rules_go//go/runfiles:go_default_library",
+    ],
 )
 
 go_binary(

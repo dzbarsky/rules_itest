@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/bazelbuild/rules_go/go/runfiles"
+	"golang.org/x/sys/unix"
 )
 
 var fibSink int
@@ -84,7 +85,7 @@ func main() {
 			var setSockoptErr error
 			err := conn.Control(func(fd uintptr) {
 				fmt.Println("SETTING UP SO_REUSEPORT:")
-				setSockoptErr = syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_REUSEPORT, 1)
+				setSockoptErr = syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, unix.SO_REUSEPORT, 1)
 			})
 			if err != nil {
 				return err

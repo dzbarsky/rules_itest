@@ -8,11 +8,11 @@ itest_service(
         "-port",
         "$${PORT}",
     ],
-    health_check_timeout = "5s",
     autoassign_port = True,
-    so_reuseport_aware = True,
     exe = "//go_service",
+    health_check_timeout = "5s",
     http_health_check_address = "http://127.0.0.1:$${PORT}",
+    so_reuseport_aware = True,
 )
 
 itest_service(
@@ -21,11 +21,11 @@ itest_service(
         "-port",
         "$${PORT}",
     ],
-    health_check_timeout = "5s",
     autoassign_port = True,
-    so_reuseport_aware = True,
     exe = "//go_service",
+    health_check_timeout = "5s",
     http_health_check_address = "http://127.0.0.1:$${PORT}",
+    so_reuseport_aware = True,
     tags = ["manual"],
 )
 

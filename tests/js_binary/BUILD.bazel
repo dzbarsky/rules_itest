@@ -1,5 +1,5 @@
-load("@rules_itest//:itest.bzl", "itest_service")
 load("@aspect_rules_js//js:defs.bzl", "js_binary")
+load("@rules_itest//:itest.bzl", "itest_service")
 
 js_binary(
     name = "server",
