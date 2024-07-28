@@ -74,14 +74,18 @@ func (r *runner) StartAll() ([]topological.Task, chan error, error) {
 	err := starter.Run(r.ctx)
 
 	serviceErrorCh := make(chan error, len(r.serviceInstances))
-	for _, serviceInstance := range r.serviceInstances {
+	for _, service := range r.serviceInstances {
+		if service.Type != "service" {
+			continue
+		}
+
 		// TODO(zbarsky): Can remove the loop var once Go is sufficiently upgraded.
-		go func(serviceInstance *ServiceInstance) {
-			err := serviceInstance.Wait()
+		go func(service *ServiceInstance) {
+			err := service.Wait()
 			if err != nil {
-				serviceErrorCh <- fmt.Errorf(colorize(serviceInstance.VersionedServiceSpec) + " exited with error: " + err.Error())
+				serviceErrorCh <- fmt.Errorf(colorize(service.VersionedServiceSpec) + " exited with error: " + err.Error())
 			}
-		}(serviceInstance)
+		}(service)
 	}
 
 	return starter.CriticalPath(), serviceErrorCh, err
@@ -262,7 +266,6 @@ func stopInstance(serviceInstance *ServiceInstance) {
 	}
 
 	killGroup(serviceInstance.Cmd)
-	serviceInstance.Cmd.Wait()
 
 	for serviceInstance.Cmd.ProcessState == nil {
 		time.Sleep(5 * time.Millisecond)

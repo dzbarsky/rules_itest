@@ -16,6 +16,13 @@ import (
 	"rules_itest/svclib"
 )
 
+var httpClient = http.Client{
+	// It's important to have a reasonable timeout here since the connection may never get accepted
+	// if it's to a port that is SO_REUSEPORT-aware. In that case, the healthcheck will hang forever
+	// without this timeout.
+	Timeout: 50 * time.Millisecond,
+}
+
 type ServiceInstance struct {
 	svclib.VersionedServiceSpec
 	*exec.Cmd
@@ -61,6 +68,8 @@ func (s *ServiceInstance) WaitUntilHealthy(ctx context.Context) error {
 		sleepDuration = time.Duration(200) * time.Millisecond
 	}
 
+	httpHealthCheckReq, _ := http.NewRequestWithContext(ctx, "GET", s.HttpHealthCheckAddress, nil)
+
 	for {
 		err := s.Error()
 		if err != nil {
@@ -76,7 +85,7 @@ func (s *ServiceInstance) WaitUntilHealthy(ctx context.Context) error {
 			log.Printf("HTTP Healthchecking %s (pid %d) : %s\n", coloredLabel, s.Process.Pid, s.HttpHealthCheckAddress)
 
 			var resp *http.Response
-			resp, err = http.DefaultClient.Get(s.HttpHealthCheckAddress)
+			resp, err = httpClient.Do(httpHealthCheckReq)
 			if resp != nil {
 				if resp.StatusCode != http.StatusOK {
 					err = fmt.Errorf("healthcheck for %s failed: %v", coloredLabel, resp)

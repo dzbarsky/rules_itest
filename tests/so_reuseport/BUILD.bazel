@@ -1,0 +1,37 @@
+load("@rules_itest//:itest.bzl", "itest_service")
+load("//:must_fail.bzl", "must_fail")
+
+itest_service(
+    name = "reuseport_service",
+    args = [
+        "-so-reuseport",
+        "-port",
+        "$${PORT}",
+    ],
+    health_check_timeout = "5s",
+    autoassign_port = True,
+    so_reuseport_aware = True,
+    exe = "//go_service",
+    http_health_check_address = "http://127.0.0.1:$${PORT}",
+)
+
+itest_service(
+    name = "_no_reuseport_service",
+    args = [
+        "-port",
+        "$${PORT}",
+    ],
+    health_check_timeout = "5s",
+    autoassign_port = True,
+    so_reuseport_aware = True,
+    exe = "//go_service",
+    http_health_check_address = "http://127.0.0.1:$${PORT}",
+    tags = ["manual"],
+)
+
+# TODO(zbarsky): this rule is busted, it isn't actually working correctly.
+# May need to bust out real bazel integration tests?
+must_fail(
+    name = "no_reuseport_service_hygiene_test",
+    test = "_no_reuseport_service_hygiene_test",
+)

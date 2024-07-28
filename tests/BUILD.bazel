@@ -11,12 +11,12 @@ itest_service(
     name = "_speedy_service",
     args = [
         "-port",
-        "8000",
+        "$${PORT}",
     ],
     env = {"foo": "bar"},
     exe = "//go_service",
-    http_health_check_address = "http://127.0.0.1:8000",
-    tags = ["manual"],
+    http_health_check_address = "http://127.0.0.1:$${PORT}",
+    autoassign_port = True,
 )
 
 # Make sure a degenerate group works.
@@ -29,14 +29,15 @@ itest_service(
     name = "sleepy_service",
     args = [
         "-port",
-        "8001",
+        "$${PORT}",
         "-sleep-time",
         ".75s",
         "-busy-time",
         ".75s",
     ],
+    autoassign_port = True,
     exe = "//go_service",
-    http_health_check_address = "http://127.0.0.1:8001",
+    http_health_check_address = "http://127.0.0.1:$${PORT}",
 )
 
 itest_service_group(
@@ -45,7 +46,6 @@ itest_service_group(
         ":sleepy_service",
         ":speedy_service",
     ],
-    tags = ["manual"],
 )
 
 itest_service(

@@ -150,10 +150,14 @@ def _itest_service_impl(ctx):
     if ctx.attr.health_check_timeout:
         _validate_duration("health_check_timeout", ctx.attr.health_check_timeout)
 
+    if ctx.attr.so_reuseport_aware and not ctx.attr.autoassign_port:
+        fail("SO_REUSEPORT awareness only makes sense when using port autoassignment")
+
     extra_service_spec_kwargs = {
         "type": "service",
         "http_health_check_address": ctx.attr.http_health_check_address,
         "autoassign_port": ctx.attr.autoassign_port,
+        "so_reuseport_aware": ctx.attr.so_reuseport_aware,
         "named_ports": ctx.attr.named_ports,
         "hot_reloadable": ctx.attr.hot_reloadable,
         "health_check_interval": ctx.attr.health_check_interval,
@@ -226,6 +230,13 @@ _itest_service_attrs = _itest_binary_attrs | {
         doc = """If set, the service manager will send an HTTP request to this address to check if the service came up in a healthy state.
         This check will be retried until it returns a 200 HTTP code. When used in conjunction with autoassigned ports, `$${@@//label/for:service:port_name}` can be used in the address.
         Example: `http_health_check_address = "http://127.0.0.1:$${@@//label/for:service:port_name}",`""",
+    ),
+    "so_reuseport_aware": attr.bool(
+        doc = """If set, the service manager will not release the autoassigned port. The service binary must use SO_REUSEPORT when binding it.
+        This reduces the possibility of port collisions when running many service_tests in parallel, or when code binds port 0 without being
+        aware of the port assignment mechanism.
+
+        Must only be set when autoassign_port is enabled.""",
     ),
 }
 

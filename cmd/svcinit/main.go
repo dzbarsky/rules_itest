@@ -287,6 +287,8 @@ func assignPorts(
 		}
 
 		// Note, this can cause collisions. So be careful!
+		// To avoid port collisions, set the `so_reuseport_aware` option on the service definition
+		// and use the SO_REUSEPORT socket option in your services.
 		for _, portName := range namedPorts {
 			// We do a bit of a dance here to set SO_LINGER to 0. For details, see
 			// https://stackoverflow.com/questions/71975992/what-really-is-the-linger-time-that-can-be-set-with-so-linger-on-sockets
@@ -294,7 +296,7 @@ func assignPorts(
 				Control: func(network, address string, conn syscall.RawConn) error {
 					var setSockoptErr error
 					err := conn.Control(func(fd uintptr) {
-						setSockoptErr = setSockoptLinger(fd, syscall.SOL_SOCKET, syscall.SO_LINGER, &syscall.Linger{
+						setSockoptErr = setSockoptsForPortAssignment(fd, &syscall.Linger{
 							Onoff:  1,
 							Linger: 0,
 						})
@@ -322,7 +324,10 @@ func assignPorts(
 
 			fmt.Printf("Assigning port %s to %s\n", port, qualifiedPortName)
 			ports.Set(qualifiedPortName, port)
-			toClose = append(toClose, listener)
+
+			if !spec.SoReuseportAware {
+				toClose = append(toClose, listener)
+			}
 		}
 	}
 

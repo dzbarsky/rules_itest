@@ -4,8 +4,8 @@ go_library(
     name = "svcinit_lib",
     srcs = [
         "main.go",
-        "set_sockopt_linger_unix.go",
-        "set_sockopt_linger_windows.go",
+        "set_sockopts_for_port_assignment_unix.go",
+        "set_sockopts_for_port_assignment_windows.go",
     ],
     importpath = "rules_itest/cmd/svcinit",
     visibility = ["//visibility:private"],
@@ -14,7 +14,42 @@ go_library(
         "//runner",
         "//svclib",
         "@rules_go//go/runfiles:go_default_library",
-    ],
+    ] + select({
+        "@rules_go//go/platform:aix": [
+            "@org_golang_x_sys//unix",
+        ],
+        "@rules_go//go/platform:android": [
+            "@org_golang_x_sys//unix",
+        ],
+        "@rules_go//go/platform:darwin": [
+            "@org_golang_x_sys//unix",
+        ],
+        "@rules_go//go/platform:dragonfly": [
+            "@org_golang_x_sys//unix",
+        ],
+        "@rules_go//go/platform:freebsd": [
+            "@org_golang_x_sys//unix",
+        ],
+        "@rules_go//go/platform:illumos": [
+            "@org_golang_x_sys//unix",
+        ],
+        "@rules_go//go/platform:ios": [
+            "@org_golang_x_sys//unix",
+        ],
+        "@rules_go//go/platform:linux": [
+            "@org_golang_x_sys//unix",
+        ],
+        "@rules_go//go/platform:netbsd": [
+            "@org_golang_x_sys//unix",
+        ],
+        "@rules_go//go/platform:openbsd": [
+            "@org_golang_x_sys//unix",
+        ],
+        "@rules_go//go/platform:solaris": [
+            "@org_golang_x_sys//unix",
+        ],
+        "//conditions:default": [],
+    }),
 )
 
 go_binary(
