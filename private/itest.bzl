@@ -127,7 +127,7 @@ def _itest_binary_impl(ctx, extra_service_spec_kwargs, extra_exe_runfiles = []):
         direct_runfiles.append(version_file)
 
     runfiles = ctx.runfiles(direct_runfiles)
-    runfiles = runfiles.merge_all(_services_runfiles(ctx, "deps") + exe_runfiles)
+    runfiles = runfiles.merge_all(_services_runfiles(ctx, "data") + _services_runfiles(ctx, "deps") + exe_runfiles)
 
     return [
         RunEnvironmentInfo(environment = _run_environment(ctx, service_specs_file)),
