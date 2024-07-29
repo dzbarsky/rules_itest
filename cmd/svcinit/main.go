@@ -8,11 +8,11 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"net"
 	"os"
 	"os/exec"
 	"os/signal"
 	"slices"
+	"strconv"
 	"strings"
 	"syscall"
 	"text/tabwriter"
@@ -281,7 +281,7 @@ func assignPorts(
 ) (
 	svclib.Ports, error,
 ) {
-	var toClose []net.Listener
+	var toClose []Fd
 	ports := svclib.Ports{}
 
 	for label, spec := range serviceSpecs {
@@ -294,50 +294,55 @@ func assignPorts(
 		// To avoid port collisions, set the `so_reuseport_aware` option on the service definition
 		// and use the SO_REUSEPORT socket option in your services.
 		for _, portName := range namedPorts {
-			// We do a bit of a dance here to set SO_LINGER to 0. For details, see
-			// https://stackoverflow.com/questions/71975992/what-really-is-the-linger-time-that-can-be-set-with-so-linger-on-sockets
-			lc := net.ListenConfig{
-				Control: func(network, address string, conn syscall.RawConn) error {
-					var setSockoptErr error
-					err := conn.Control(func(fd uintptr) {
-						setSockoptErr = setSockoptsForPortAssignment(fd, &syscall.Linger{
-							Onoff:  1,
-							Linger: 0,
-						})
-					})
-					if err != nil {
-						return err
-					}
-					return setSockoptErr
-				},
+			fd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_STREAM, syscall.IPPROTO_TCP)
+			if err != nil {
+				return nil, err
 			}
 
-			listener, err := lc.Listen(context.Background(), "tcp", "127.0.0.1:0")
+			// We do a bit of a dance here to set SO_LINGER to 0. For details, see
+			// https://stackoverflow.com/questions/71975992/what-really-is-the-linger-time-that-can-be-set-with-so-linger-on-sockets
+			linger := syscall.Linger{
+				Onoff:  1,
+				Linger: 0,
+			}
+			if err := syscall.SetsockoptLinger(fd, syscall.SOL_SOCKET, syscall.SO_LINGER, &linger); err != nil {
+				return nil, err
+			}
+
+			if err := setSockoptsForPortAssignment(fd); err != nil {
+				return nil, err
+			}
+
+			addr := syscall.SockaddrInet4{
+				Port: 0,
+				Addr: [4]byte{127, 0, 0, 1},
+			}
+			if err := syscall.Bind(fd, &addr); err != nil {
+				return nil, err
+			}
+
+			assignedAddr, err := syscall.Getsockname(fd)
 			if err != nil {
 				return nil, err
 			}
-			_, port, err := net.SplitHostPort(listener.Addr().String())
-			if err != nil {
-				return nil, err
-			}
+			port := assignedAddr.(*syscall.SockaddrInet4).Port
 
 			qualifiedPortName := label
 			if portName != "" {
 				qualifiedPortName += ":" + portName
 			}
 
-			fmt.Printf("Assigning port %s to %s\n", port, qualifiedPortName)
-			ports.Set(qualifiedPortName, port)
+			fmt.Printf("Assigning port %d to %s\n", port, qualifiedPortName)
+			ports.Set(qualifiedPortName, strconv.Itoa(port))
 
 			if !spec.SoReuseportAware {
-				toClose = append(toClose, listener)
+				toClose = append(toClose, fd)
 			}
 		}
 	}
 
-	for _, listener := range toClose {
-		err := listener.Close()
-		if err != nil {
+	for _, fd := range toClose {
+		if err := syscall.Close(fd); err != nil {
 			return nil, err
 		}
 	}
