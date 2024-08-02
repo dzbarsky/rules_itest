@@ -1,4 +1,6 @@
-load("@rules_itest//:itest.bzl", "itest_service")
+load("@aspect_rules_js//js:defs.bzl", "js_test")
+load("@rules_itest//:itest.bzl", "itest_service", "service_test")
+load("@rules_go//go:def.bzl", "go_test")
 load("//:must_fail.bzl", "must_fail")
 
 NOT_WINDOWS = select({
@@ -17,6 +19,9 @@ itest_service(
     exe = "//go_service",
     health_check_timeout = "5s",
     http_health_check_address = "http://127.0.0.1:$${PORT}",
+    named_ports = [
+        "named_port1",
+    ],
     so_reuseport_aware = True,
     target_compatible_with = NOT_WINDOWS,
 )
@@ -42,4 +47,28 @@ must_fail(
     name = "no_reuseport_service_hygiene_test",
     target_compatible_with = NOT_WINDOWS,
     test = "_no_reuseport_service_hygiene_test",
+)
+
+go_test(
+    name = "_so_reuseport_test",
+    srcs = ["so_reuseport_test.go"],
+    tags = ["manual"],
+)
+
+service_test(
+    name = "so_reuseport_test",
+    services = [":reuseport_service"],
+    test = ":_so_reuseport_test",
+)
+
+js_test(
+    name = "_so_reuseport_js_test",
+    entry_point = "so_reuseport_test.mjs",
+    tags = ["manual"],
+)
+
+service_test(
+    name = "so_reuseport_js_test",
+    services = [":reuseport_service"],
+    test = ":_so_reuseport_js_test",
 )
