@@ -150,7 +150,7 @@ def _itest_service_impl(ctx):
     if ctx.attr.health_check_timeout:
         _validate_duration("health_check_timeout", ctx.attr.health_check_timeout)
 
-    if ctx.attr.so_reuseport_aware and not ctx.attr.autoassign_port:
+    if ctx.attr.so_reuseport_aware and not (ctx.attr.autoassign_port or ctx.attr.named_ports):
         fail("SO_REUSEPORT awareness only makes sense when using port autoassignment")
 
     extra_service_spec_kwargs = {
