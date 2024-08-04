@@ -8,7 +8,7 @@ import (
 	"net"
 )
 
-func TestNoSoResusePort(t *testing.T) {
+func TestNo_SO_REUSEPORT(t *testing.T) {
 	portNames := []string{
 		"@@//so_reuseport:reuseport_service",
 		"@@//so_reuseport:reuseport_service:named_port1",
