@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+set -eux
+
 got="$(cat $TEST_TMPDIR/out.txt)"
 
 if [ "$got" != "hello world" ]; then

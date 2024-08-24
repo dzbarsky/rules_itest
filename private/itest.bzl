@@ -105,6 +105,12 @@ def _itest_binary_impl(ctx, extra_service_spec_kwargs, extra_exe_runfiles = []):
         for (var, val) in ctx.attr.env.items()
     }
 
+    if RunEnvironmentInfo in ctx.attr.exe:
+        for k, v in ctx.attr.exe[RunEnvironmentInfo].environment.items():
+            if k in env:
+                fail("Env key %s specified both in raw binary and itest wrapper rule" % k)
+            env[k] = v
+
     if version_file:
         extra_service_spec_kwargs["version_file"] = to_rlocation_path(ctx, version_file)
 

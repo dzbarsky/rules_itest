@@ -1,2 +1,3 @@
 import ../.bazelrc
 common --noenable_runfiles
+common --@rules_go//go/config:pure
