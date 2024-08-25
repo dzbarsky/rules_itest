@@ -270,6 +270,8 @@ func main() {
 			must(err)
 
 			// TODO(zbarsky): what is the right behavior here when services are crashing in ibazel mode?
+			for range servicesErrCh {
+			} // Drain the channel
 			criticalPath, err = r.UpdateSpecsAndRestart(serviceSpecs, servicesErrCh, []byte(ibazelCmd))
 			must(err)
 		}

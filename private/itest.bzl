@@ -20,8 +20,8 @@ forward the ibazel hot-reload notification over stdin instead of restarting the 
 
 # Service control
 
-The svcinit also exposes a HTTP server on `http://127.0.0.1:{SVCCTL_PORT}`. It is useful for tests
-that need to start / stop services in the midst of the test run. There are currently 4 API endpoint
+The serice manager exposes a HTTP server on `http://127.0.0.1:{SVCCTL_PORT}`. It can be used to
+start / stop services during a test run. There are currently 4 API endpoint
 available. All of them are GET requests:
 
 1. `/v0/healthcheck?service={label}`: Returns 200 if the service is healthy, 503 otherwise.

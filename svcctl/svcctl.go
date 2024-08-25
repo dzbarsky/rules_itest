@@ -57,7 +57,6 @@ func handleHealthCheck(ctx context.Context, r *runner.Runner, _ chan error, w ht
 }
 
 func handleStart(ctx context.Context, r *runner.Runner, serviceErrCh chan error, w http.ResponseWriter, req *http.Request) {
-
 	s, status, err := getService(r, req)
 	if err != nil {
 		http.Error(w, err.Error(), status)

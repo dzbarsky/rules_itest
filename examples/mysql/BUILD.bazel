@@ -1,24 +1,23 @@
-load("@aspect_bazel_lib//lib:copy_file.bzl", "copy_file")
 load("@rules_itest//:itest.bzl", "itest_service")
 load(":bootstrap.bzl", "mysql_impl")
 
 alias(
     name = "mysql_cli",
     actual = select({
-        "@bazel_tools//src/conditions:darwin_arm64": "@mysql_8_0_34_macos13-arm64//:mysql_cli",
-        "@bazel_tools//src/conditions:darwin_x86_64": "@mysql_8_0_34_macos13-x86_64//:mysql_cli",
-        "@bazel_tools//src/conditions:linux_aarch64": "@mysql_8_0_34_linux-glibc2.28-aarch64//:mysql_cli",
-        "@bazel_tools//src/conditions:linux_x86_64": "@mysql_8_0_34_linux-glibc2.28-x86_64//:mysql_cli",
+        "@bazel_tools//src/conditions:darwin_arm64": "@mysql_8_4_0_macos14-arm64//:mysql_cli",
+        "@bazel_tools//src/conditions:darwin_x86_64": "@mysql_8_4_0_macos14-x86_64//:mysql_cli",
+        "@bazel_tools//src/conditions:linux_aarch64": "@mysql_8_4_0_linux-glibc2.28-aarch64//:mysql_cli",
+        "@bazel_tools//src/conditions:linux_x86_64": "@mysql_8_4_0_linux-glibc2.28-x86_64//:mysql_cli",
     }),
 )
 
 alias(
     name = "mysqld",
     actual = select({
-        "@bazel_tools//src/conditions:darwin_arm64": "@mysql_8_0_34_macos13-arm64//:mysqld",
-        "@bazel_tools//src/conditions:darwin_x86_64": "@mysql_8_0_34_macos13-x86_64//:mysqld",
-        "@bazel_tools//src/conditions:linux_aarch64": "@mysql_8_0_34_linux-glibc2.28-aarch64//:mysqld",
-        "@bazel_tools//src/conditions:linux_x86_64": "@mysql_8_0_34_linux-glibc2.28-x86_64//:mysqld",
+        "@bazel_tools//src/conditions:darwin_arm64": "@mysql_8_4_0_macos14-arm64//:mysqld",
+        "@bazel_tools//src/conditions:darwin_x86_64": "@mysql_8_4_0_macos14-x86_64//:mysqld",
+        "@bazel_tools//src/conditions:linux_aarch64": "@mysql_8_4_0_linux-glibc2.28-aarch64//:mysqld",
+        "@bazel_tools//src/conditions:linux_x86_64": "@mysql_8_4_0_linux-glibc2.28-x86_64//:mysqld",
     }),
 )
 
