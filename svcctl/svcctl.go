@@ -8,9 +8,11 @@ import (
 	"net"
 	"net/http"
 	"os/exec"
-	"rules_itest/runner"
 	"syscall"
 	"time"
+
+	"rules_itest/runner"
+	"rules_itest/svclib"
 )
 
 type handlerFn = func(context.Context, *runner.Runner, chan error, http.ResponseWriter, *http.Request)
@@ -154,11 +156,34 @@ func handleWait(ctx context.Context, r *runner.Runner, _ chan error, w http.Resp
 	}
 }
 
-func Serve(ctx context.Context, listener net.Listener, r *runner.Runner, servicesErrCh chan error) error {
+type portHandler struct {
+	ports svclib.Ports
+}
+
+func (p portHandler) handle(ctx context.Context, r *runner.Runner, _ chan error, w http.ResponseWriter, req *http.Request) {
+	params := req.URL.Query()
+	service := params.Get("service")
+	if service == "" {
+		http.Error(w, "service parameter is required", http.StatusBadRequest)
+		return
+	}
+
+	port, ok := p.ports[service]
+	if !ok {
+		http.Error(w, "port is not autoassigned", http.StatusBadRequest)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(port))
+}
+
+func Serve(ctx context.Context, listener net.Listener, r *runner.Runner, ports svclib.Ports, servicesErrCh chan error) error {
 	mux := http.NewServeMux()
 	handle(ctx, mux, r, servicesErrCh, "GET /v0/healthcheck", handleHealthCheck)
 	handle(ctx, mux, r, servicesErrCh, "GET /v0/start", handleStart)
 	handle(ctx, mux, r, servicesErrCh, "GET /v0/kill", handleKill)
 	handle(ctx, mux, r, servicesErrCh, "GET /v0/wait", handleWait)
+	handle(ctx, mux, r, servicesErrCh, "GET /v0/port", portHandler{ports}.handle)
 	return http.Serve(listener, mux)
 }

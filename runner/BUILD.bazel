@@ -3,9 +3,9 @@ load("@rules_go//go:def.bzl", "go_library")
 go_library(
     name = "runner",
     srcs = [
-        "runner.go",
         "pgroup_unix.go",
         "pgroup_windows.go",
+        "runner.go",
         "service_instance.go",
         "topo.go",
     ],

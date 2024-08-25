@@ -1,5 +1,5 @@
 load("@rules_go//go:def.bzl", "go_test")
-load("@rules_itest//:itest.bzl", "service_test", "itest_task")
+load("@rules_itest//:itest.bzl", "itest_task", "service_test")
 
 env = {
     "ITEST_ENV_VAR": "ITEST_ENV_VAR_VALUE",
@@ -30,7 +30,7 @@ service_test(
 )
 
 cc_binary(
-	name = "_task_cc",
+    name = "_task_cc",
     srcs = ["task.cc"],
     env = env,
 )
@@ -41,7 +41,7 @@ itest_task(
 )
 
 sh_binary(
-	name = "_task_sh",
+    name = "_task_sh",
     srcs = ["task.sh"],
     env = env,
 )

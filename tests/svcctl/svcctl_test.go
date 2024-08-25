@@ -28,6 +28,30 @@ func getSleepyPort(t *testing.T) string {
 	return string(port)
 }
 
+func TestSvcctlPortRetrieval(t *testing.T) {
+	speedyPort := getSpeedyPort(t)
+
+	port := os.Getenv("SVCCTL_PORT")
+	if port == "" {
+		t.Errorf("SVCCTL_PORT not set")
+	}
+	svcctlHost := "http://127.0.0.1:" + port
+
+	params := url.Values{}
+	params.Add("service", "@@//:_speedy_service")
+	resp, err := http.Get(svcctlHost + "/v0/port?" + params.Encode())
+	if err != nil {
+		t.Errorf("Failed to get port for speedy service: %v", err)
+	}
+	speedyPort2, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Errorf("Failed to get port for speedy service: %v", err)
+	}
+	if string(speedyPort2) != speedyPort {
+		t.Errorf("Got port %s, want %s", string(speedyPort2), speedyPort)
+	}
+}
+
 func TestSvcctl(t *testing.T) {
 	speedyPort := getSpeedyPort(t)
 	sleepyPort := getSleepyPort(t)

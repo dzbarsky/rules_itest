@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"slices"
+	"strconv"
 	"strings"
 	"syscall"
 	"text/tabwriter"
@@ -111,14 +112,21 @@ func main() {
 
 	go func() {
 		defer listener.Close()
-		err := svcctl.Serve(ctx, listener, r, servicesErrCh)
+		err := svcctl.Serve(ctx, listener, r, ports, servicesErrCh)
 		if err != nil {
 			log.Fatalf("svcctl.Serve: %v", err)
 		}
 	}()
 
 	port := listener.Addr().(*net.TCPAddr).Port
-	os.Setenv("SVCCTL_PORT", fmt.Sprintf("%d", port))
+	portString := strconv.Itoa(port)
+	os.Setenv("SVCCTL_PORT", portString)
+
+	if testLabel == "" {
+		err = os.WriteFile("/tmp/svcctl_port", []byte(portString), 0600)
+		must(err)
+		defer os.Remove("/tmp/svcctl_port")
+	}
 
 	signalCh := make(chan os.Signal, 1)
 	signal.Notify(signalCh, syscall.SIGINT, syscall.SIGTERM)

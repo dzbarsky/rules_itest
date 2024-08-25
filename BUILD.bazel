@@ -1,5 +1,10 @@
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 
+alias(
+    name = "gazelle",
+    actual = "//gazelle",
+)
+
 cc_binary(
     name = "exit0",
     srcs = ["exit0.c"],

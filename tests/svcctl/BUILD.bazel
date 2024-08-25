@@ -1,5 +1,5 @@
-load("@rules_itest//:itest.bzl", "service_test")
 load("@rules_go//go:def.bzl", "go_test")
+load("@rules_itest//:itest.bzl", "service_test")
 
 go_test(
     name = "_svcctl_test",

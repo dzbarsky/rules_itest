@@ -20,15 +20,19 @@ forward the ibazel hot-reload notification over stdin instead of restarting the 
 
 # Service control
 
-The serice manager exposes a HTTP server on `http://127.0.0.1:{SVCCTL_PORT}`. It can be used to
-start / stop services during a test run. There are currently 4 API endpoint
-available. All of them are GET requests:
+The service manager exposes a HTTP server on `http://127.0.0.1:{SVCCTL_PORT}`. It can be used to
+start / stop services during a test run. There are currently 5 API endpoints available.
+All of them are GET requests:
 
 1. `/v0/healthcheck?service={label}`: Returns 200 if the service is healthy, 503 otherwise.
 2. `/v0/start?service={label}`: Starts the service if it is not already running.
 3. `/v0/kill?service={label}[&signal={signal}]`: Send kill signal to the service if it is running.
    You can optionally specify the signal to send to the service (valid values: SIGTERM and SIGKILL).
 4. `/v0/wait?service={label}`: Wait for the service to exit and returns the exit code in the body.
+5. `/v0/port?service={label}`: Returns the assigned port for the given label. May be a named port.
+
+In `bazel run` mode, the service manager will write the value of `SVCCTL_PORT` to `/tmp/svcctl_port`.
+This can be used in conjunction with the `/v0/port` API to let other tools interact with the managed services.
 """
 
 load("@aspect_bazel_lib//lib:paths.bzl", "to_rlocation_path")
@@ -318,8 +322,7 @@ itest_service_group = rule(
 It serves as a convenient way for a downstream target to depend on multiple services with a single label, without
 forcing the services within the group to define a specific startup ordering with their `deps`.
 
-It can bring up multiple services with a single `bazel run` command, which is useful for creating
-dev environments.""",
+It can bring up multiple services with a single `bazel run` command, which is useful for creating dev environments.""",
 )
 
 def _create_svcinit_actions(ctx, services):
