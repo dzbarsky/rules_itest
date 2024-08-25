@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"runtime"
 	"testing"
 	"time"
 )
@@ -74,7 +75,7 @@ func TestSvcctl(t *testing.T) {
 		t.Errorf("Got status code %d, want %d", resp.StatusCode, http.StatusOK)
 	}
 
-	// Wait for speed service to stop with exit code -1
+	// Wait for speedy service to stop with exit code -1
 	params = url.Values{}
 	params.Add("service", "@@//:_speedy_service")
 	resp, err = http.Get(svcctlHost + "/v0/wait?" + params.Encode())
@@ -84,13 +85,20 @@ func TestSvcctl(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("Got status code %d, want %d", resp.StatusCode, http.StatusOK)
 	}
-	// Terminated by signal, so the exit code should be -1
+
+	// Terminated by signal, so the exit code should be -1 (except on Windows)
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		t.Errorf("Failed to read response body: %v", err)
 	}
-	if string(body) != "-1" {
-		t.Errorf("Got exit code %s, want -1", body)
+
+	wantCode := "-1"
+	if runtime.GOOS == "windows" {
+		wantCode = "1"
+	}
+
+	if string(body) != wantCode {
+		t.Errorf("Got exit code %s, want %s", body, wantCode)
 	}
 
 	// Health check sleepy service (should be fine)
