@@ -33,6 +33,8 @@ itest_service(<a href="#itest_service-name">name</a>, <a href="#itest_service-au
 
 An itest_service is a binary that is intended to run for the duration of the integration test. Examples include databases, HTTP/RPC servers, queue consumers, external service mocks, etc.
 
+All [common binary attributes](https://bazel.build/reference/be/common-definitions#common-attributes-binaries) are supported including `args`.
+
 **ATTRIBUTES**
 
 
@@ -48,7 +50,7 @@ An itest_service is a binary that is intended to run for the duration of the int
 | <a id="itest_service-health_check_args"></a>health_check_args |  Arguments to pass to the health_check binary. The various defined ports will be substituted prior to being given to the health_check binary.   | List of strings | optional | <code>[]</code> |
 | <a id="itest_service-health_check_interval"></a>health_check_interval |  The duration between each health check. The syntax is based on common time duration with a number, followed by the time unit. For example, <code>200ms</code>, <code>1s</code>, <code>2m</code>, <code>3h</code>, <code>4d</code>.   | String | optional | <code>"200ms"</code> |
 | <a id="itest_service-health_check_timeout"></a>health_check_timeout |  The timeout to wait for the health check. The syntax is based on common time duration with a number, followed by the time unit. For example, <code>200ms</code>, <code>1s</code>, <code>2m</code>, <code>3h</code>, <code>4d</code>. If empty or not set, the health check will not have a timeout.   | String | optional | <code>""</code> |
-| <a id="itest_service-hot_reloadable"></a>hot_reloadable |  If set to True, the service manager will propagate ibazel's reload notificaiton over stdin instead of restarting the service.         See the ruleset docstring for more info on using ibazel   | Boolean | optional | <code>False</code> |
+| <a id="itest_service-hot_reloadable"></a>hot_reloadable |  If set to True, the service manager will propagate ibazel's reload notification over stdin instead of restarting the service.         See the ruleset docstring for more info on using ibazel   | Boolean | optional | <code>False</code> |
 | <a id="itest_service-http_health_check_address"></a>http_health_check_address |  If set, the service manager will send an HTTP request to this address to check if the service came up in a healthy state.         This check will be retried until it returns a 200 HTTP code. When used in conjunction with autoassigned ports, <code>$${@@//label/for:service:port_name}</code> can be used in the address.         Example: <code>http_health_check_address = "http://127.0.0.1:$${@@//label/for:service:port_name}",</code>   | String | optional | <code>""</code> |
 | <a id="itest_service-named_ports"></a>named_ports |  For each element of the list, the service manager will pick a free port and assign it to the service.         The port's fully-qualified name is the service's fully-qualified label and the port name, separated by a colon.         For example, a port assigned with <code>names_ports = ["http_port"]</code> will be assigned a fully-qualified name of <code>@@//label/for:service:http_port</code>.<br><br>        Named ports are accessible through the service-port mapping. For more details, see <code>autoassign_port</code>.   | List of strings | optional | <code>[]</code> |
 | <a id="itest_service-so_reuseport_aware"></a>so_reuseport_aware |  If set, the service manager will not release the autoassigned port. The service binary must use SO_REUSEPORT when binding it.         This reduces the possibility of port collisions when running many service_tests in parallel, or when code binds port 0 without being         aware of the port assignment mechanism.<br><br>        Must only be set when autoassign_port is enabled.   | Boolean | optional | <code>False</code> |
@@ -88,7 +90,9 @@ itest_task(<a href="#itest_task-name">name</a>, <a href="#itest_task-data">data<
 </pre>
 
 A task is a one-shot (not long-running binary) that is intended to be executed as part of the itest scenario creation.
-Examples include: filesystem setup, dynamic config file generation (especially if it depends on ports), DB migrations or seed data creation
+Examples include: filesystem setup, dynamic config file generation (especially if it depends on ports), DB migrations or seed data creation.
+
+All [common binary attributes](https://bazel.build/reference/be/common-definitions#common-attributes-binaries) are supported including `args`.
 
 **ATTRIBUTES**
 
@@ -133,6 +137,8 @@ service_test(
 ```
 
 Typically this would be wrapped into a macro.
+
+All [common binary attributes](https://bazel.build/reference/be/common-definitions#common-attributes-binaries) are supported including `args`.
 
 **ATTRIBUTES**
 

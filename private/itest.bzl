@@ -15,7 +15,7 @@ query:enable-reload --@rules_itest//:enable_per_service_reload
 
 `ibazel run --config enable-reload //path/to:target`
 
-In addition, if can set the `hot_reloadable` attribute on an `itest_service`, the service manager will
+In addition, if the `hot_reloadable` attribute is set on an `itest_service`, the service manager will
 forward the ibazel hot-reload notification over stdin instead of restarting the service.
 """
 
@@ -205,7 +205,7 @@ _itest_service_attrs = _itest_binary_attrs | {
     "named_ports": attr.string_list(
         doc = """For each element of the list, the service manager will pick a free port and assign it to the service.
         The port's fully-qualified name is the service's fully-qualified label and the port name, separated by a colon.
-        For example, a port assigned with `names_ports = ["http_port"]` will be assigned a fully-qualified name of `@@//label/for:service:http_port`.
+        For example, a port assigned with `named_ports = ["http_port"]` will be assigned a fully-qualified name of `@@//label/for:service:http_port`.
 
         Named ports are accessible through the service-port mapping. For more details, see `autoassign_port`.""",
     ),
@@ -229,7 +229,7 @@ _itest_service_attrs = _itest_binary_attrs | {
         doc = "The timeout to wait for the health check. The syntax is based on common time duration with a number, followed by the time unit. For example, `200ms`, `1s`, `2m`, `3h`, `4d`. If empty or not set, the health check will not have a timeout.",
     ),
     "hot_reloadable": attr.bool(
-        doc = """If set to True, the service manager will propagate ibazel's reload notificaiton over stdin instead of restarting the service.
+        doc = """If set to True, the service manager will propagate ibazel's reload notification over stdin instead of restarting the service.
         See the ruleset docstring for more info on using ibazel""",
     ),
     "http_health_check_address": attr.string(
@@ -242,7 +242,7 @@ _itest_service_attrs = _itest_binary_attrs | {
         This reduces the possibility of port collisions when running many service_tests in parallel, or when code binds port 0 without being
         aware of the port assignment mechanism.
 
-        Must only be set when autoassign_port is enabled.""",
+        Must only be set when `autoassign_port` is enabled or `named_ports` are used.""",
     ),
 }
 
@@ -250,7 +250,9 @@ itest_service = rule(
     implementation = _itest_service_impl,
     attrs = _itest_service_attrs,
     executable = True,
-    doc = "An itest_service is a binary that is intended to run for the duration of the integration test. Examples include databases, HTTP/RPC servers, queue consumers, external service mocks, etc.",
+    doc = """An itest_service is a binary that is intended to run for the duration of the integration test. Examples include databases, HTTP/RPC servers, queue consumers, external service mocks, etc.
+
+All [common binary attributes](https://bazel.build/reference/be/common-definitions#common-attributes-binaries) are supported including `args`.""",
 )
 
 def _itest_task_impl(ctx):
@@ -262,8 +264,10 @@ itest_task = rule(
     implementation = _itest_task_impl,
     attrs = _itest_binary_attrs,
     executable = True,
-    doc = """A task is a one-shot (not long-running binary) that is intended to be executed as part of the itest scenario creation.
-Examples include: filesystem setup, dynamic config file generation (especially if it depends on ports), DB migrations or seed data creation""",
+    doc = """A task is a one-shot execution of a binary that is intended to run as part of the itest scenario creation.
+Examples include: filesystem setup, dynamic config file generation (especially if it depends on ports), DB migrations or seed data creation.
+
+All [common binary attributes](https://bazel.build/reference/be/common-definitions#common-attributes-binaries) are supported including `args`.""",
 )
 
 def _itest_service_group_impl(ctx):
@@ -302,7 +306,7 @@ itest_service_group = rule(
 It serves as a convenient way for a downstream target to depend on multiple services with a single label, without
 forcing the services within the group to define a specific startup ordering with their `deps`.
 
-It is also useful to bring up multiple services with a single `bazel run` command, which is useful for creating
+It can bring up multiple services with a single `bazel run` command, which is useful for creating
 dev environments.""",
 )
 
@@ -397,7 +401,9 @@ service_test(
 )
 ```
 
-Typically this would be wrapped into a macro.""",
+Typically this would be wrapped into a macro.
+
+All [common binary attributes](https://bazel.build/reference/be/common-definitions#common-attributes-binaries) are supported including `args`.""",
 )
 
 def _create_version_file(ctx, inputs):
