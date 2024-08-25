@@ -17,6 +17,18 @@ query:enable-reload --@rules_itest//:enable_per_service_reload
 
 In addition, if the `hot_reloadable` attribute is set on an `itest_service`, the service manager will
 forward the ibazel hot-reload notification over stdin instead of restarting the service.
+
+# Service control
+
+The svcinit also exposes a HTTP server on `http://127.0.0.1:{SVCCTL_PORT}`. It is useful for tests
+that need to start / stop services in the midst of the test run. There are currently 4 API endpoint
+available. All of them are GET requests:
+
+1. `/v0/healthcheck?service={label}`: Returns 200 if the service is healthy, 503 otherwise.
+2. `/v0/start?service={label}`: Starts the service if it is not already running.
+3. `/v0/kill?service={label}[&signal={signal}]`: Send kill signal to the service if it is running.
+   You can optionally specify the signal to send to the service (valid values: SIGTERM and SIGKILL).
+4. `/v0/wait?service={label}`: Wait for the service to exit and returns the exit code in the body.
 """
 
 load("@aspect_bazel_lib//lib:paths.bzl", "to_rlocation_path")

@@ -22,6 +22,7 @@ import (
 
 	"rules_itest/logger"
 	"rules_itest/runner"
+	"rules_itest/svcctl"
 	"rules_itest/svclib"
 )
 
@@ -97,15 +98,27 @@ func main() {
 	serviceSpecs, err := augmentServiceSpecs(unversionedSpecs, ports)
 	must(err)
 
-	/*if *allowSvcctl {
-		addr := net.Listen(network, address)
-	}*/
-
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
 
 	r, err := runner.New(ctx, serviceSpecs)
 	must(err)
+
+	servicesErrCh := make(chan error, len(serviceSpecs))
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	must(err)
+
+	go func() {
+		defer listener.Close()
+		err := svcctl.Serve(ctx, listener, r, servicesErrCh)
+		if err != nil {
+			log.Fatalf("svcctl.Serve: %v", err)
+		}
+	}()
+
+	port := listener.Addr().(*net.TCPAddr).Port
+	os.Setenv("SVCCTL_PORT", fmt.Sprintf("%d", port))
 
 	signalCh := make(chan os.Signal, 1)
 	signal.Notify(signalCh, syscall.SIGINT, syscall.SIGTERM)
@@ -123,7 +136,7 @@ func main() {
 		}
 	}()
 
-	criticalPath, servicesErrCh, err := r.StartAll()
+	criticalPath, err := r.StartAll(servicesErrCh)
 	if errors.Is(err, context.Canceled) {
 		_, err := r.StopAll()
 		must(err)
@@ -257,7 +270,7 @@ func main() {
 			must(err)
 
 			// TODO(zbarsky): what is the right behavior here when services are crashing in ibazel mode?
-			criticalPath, _, err = r.UpdateSpecsAndRestart(serviceSpecs, []byte(ibazelCmd))
+			criticalPath, err = r.UpdateSpecsAndRestart(serviceSpecs, servicesErrCh, []byte(ibazelCmd))
 			must(err)
 		}
 	}

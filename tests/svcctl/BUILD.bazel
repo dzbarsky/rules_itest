@@ -1,0 +1,16 @@
+load("@rules_itest//:itest.bzl", "service_test")
+load("@rules_go//go:def.bzl", "go_test")
+
+go_test(
+    name = "_svcctl_test",
+    srcs = ["svcctl_test.go"],
+    tags = ["manual"],
+)
+
+service_test(
+    name = "svcctl_test",
+    services = [
+        "//:services",
+    ],
+    test = "_svcctl_test",
+)

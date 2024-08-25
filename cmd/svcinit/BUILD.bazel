@@ -12,6 +12,7 @@ go_library(
     deps = [
         "//logger",
         "//runner",
+        "//svcctl",
         "//svclib",
         "@rules_go//go/runfiles:go_default_library",
     ] + select({

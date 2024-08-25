@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"runtime"
 	"sync"
+	"syscall"
 	"time"
 
 	"rules_itest/logger"
@@ -26,15 +27,15 @@ var shouldUseProcessGroups = runtime.GOOS != "windows" && os.Getenv("BAZEL_TEST"
 
 type ServiceSpecs = map[string]svclib.VersionedServiceSpec
 
-type runner struct {
+type Runner struct {
 	ctx          context.Context
 	serviceSpecs ServiceSpecs
 
 	serviceInstances map[string]*ServiceInstance
 }
 
-func New(ctx context.Context, serviceSpecs ServiceSpecs) (*runner, error) {
-	r := &runner{
+func New(ctx context.Context, serviceSpecs ServiceSpecs) (*Runner, error) {
+	r := &Runner{
 		ctx:              ctx,
 		serviceInstances: map[string]*ServiceInstance{},
 	}
@@ -49,13 +50,13 @@ func colorize(s svclib.VersionedServiceSpec) string {
 	return s.Colorize(s.Label)
 }
 
-func (r *runner) StartAll() ([]topological.Task, chan error, error) {
+func (r *Runner) StartAll(serviceErrCh chan error) ([]topological.Task, error) {
 	tasks := allTasks(r.serviceInstances, func(ctx context.Context, service *ServiceInstance) error {
 		if service.Type == "group" {
 			return nil
 		}
-		log.Printf("Starting %s %v\n", colorize(service.VersionedServiceSpec), service.Args[1:])
-		startErr := service.Start()
+		log.Printf("Starting %s %v\n", colorize(service.VersionedServiceSpec), service.cmd.Args[1:])
+		startErr := service.Start(ctx)
 		if startErr != nil {
 			return startErr
 		}
@@ -73,7 +74,6 @@ func (r *runner) StartAll() ([]topological.Task, chan error, error) {
 	starter := topological.NewRunner(tasks)
 	err := starter.Run(r.ctx)
 
-	serviceErrorCh := make(chan error, len(r.serviceInstances))
 	for _, service := range r.serviceInstances {
 		if service.Type != "service" {
 			continue
@@ -82,22 +82,22 @@ func (r *runner) StartAll() ([]topological.Task, chan error, error) {
 		// TODO(zbarsky): Can remove the loop var once Go is sufficiently upgraded.
 		go func(service *ServiceInstance) {
 			err := service.Wait()
-			if err != nil {
-				serviceErrorCh <- fmt.Errorf(colorize(service.VersionedServiceSpec) + " exited with error: " + err.Error())
+			if err != nil && !service.Killed() {
+				serviceErrCh <- fmt.Errorf(colorize(service.VersionedServiceSpec) + " exited with error: " + err.Error())
 			}
 		}(service)
 	}
 
-	return starter.CriticalPath(), serviceErrorCh, err
+	return starter.CriticalPath(), err
 }
 
-func (r *runner) StopAll() (map[string]*os.ProcessState, error) {
+func (r *Runner) StopAll() (map[string]*os.ProcessState, error) {
 	tasks := allTasks(r.serviceInstances, func(ctx context.Context, service *ServiceInstance) error {
 		if service.Type == "group" {
 			return nil
 		}
 		log.Printf("Stopping %s\n", colorize(service.VersionedServiceSpec))
-		stopInstance(service)
+		service.Stop(syscall.SIGKILL)
 		return nil
 	})
 	stopper := topological.NewReversedRunner(tasks)
@@ -109,13 +109,13 @@ func (r *runner) StopAll() (map[string]*os.ProcessState, error) {
 		if serviceInstance.Type == "group" {
 			continue
 		}
-		states[serviceInstance.Label] = serviceInstance.Cmd.ProcessState
+		states[serviceInstance.Label] = serviceInstance.ProcessState()
 	}
 
 	return states, err
 }
 
-func (r *runner) GetStartDurations() map[string]time.Duration {
+func (r *Runner) GetStartDurations() map[string]time.Duration {
 	durations := make(map[string]time.Duration)
 
 	for _, serviceInstance := range r.serviceInstances {
@@ -123,6 +123,10 @@ func (r *runner) GetStartDurations() map[string]time.Duration {
 	}
 
 	return durations
+}
+
+func (r *Runner) GetInstance(label string) *ServiceInstance {
+	return r.serviceInstances[label]
 }
 
 type updateActions struct {
@@ -169,7 +173,7 @@ func computeUpdateActions(currentServices, newServices ServiceSpecs) updateActio
 	return actions
 }
 
-func (r *runner) UpdateSpecs(serviceSpecs ServiceSpecs, ibazelCmd []byte) error {
+func (r *Runner) UpdateSpecs(serviceSpecs ServiceSpecs, ibazelCmd []byte) error {
 	updateActions := computeUpdateActions(r.serviceSpecs, serviceSpecs)
 
 	for _, label := range updateActions.toStopLabels {
@@ -177,7 +181,7 @@ func (r *runner) UpdateSpecs(serviceSpecs ServiceSpecs, ibazelCmd []byte) error 
 		if serviceInstance.Type == "group" {
 			continue
 		}
-		stopInstance(serviceInstance)
+		serviceInstance.Stop(syscall.SIGKILL)
 		delete(r.serviceInstances, label)
 	}
 
@@ -190,7 +194,7 @@ func (r *runner) UpdateSpecs(serviceSpecs ServiceSpecs, ibazelCmd []byte) error 
 	}
 
 	for _, label := range updateActions.toReloadLabels {
-		_, err := r.serviceInstances[label].Stdin.Write(ibazelCmd)
+		_, err := r.serviceInstances[label].stdin.Write(ibazelCmd)
 		if err != nil {
 			return err
 		}
@@ -200,17 +204,18 @@ func (r *runner) UpdateSpecs(serviceSpecs ServiceSpecs, ibazelCmd []byte) error 
 	return nil
 }
 
-func (r *runner) UpdateSpecsAndRestart(
+func (r *Runner) UpdateSpecsAndRestart(
 	serviceSpecs ServiceSpecs,
+	serviceErrCh chan error,
 	ibazelCmd []byte,
 ) (
-	[]topological.Task, chan error, error,
+	[]topological.Task, error,
 ) {
 	err := r.UpdateSpecs(serviceSpecs, ibazelCmd)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	return r.StartAll()
+	return r.StartAll(serviceErrCh)
 }
 
 func prepareServiceInstance(ctx context.Context, s svclib.VersionedServiceSpec) (*ServiceInstance, error) {
@@ -220,6 +225,21 @@ func prepareServiceInstance(ctx context.Context, s svclib.VersionedServiceSpec) 
 			startErrFn:           sync.OnceValue(func() error { return nil }),
 		}, nil
 	}
+
+	instance := &ServiceInstance{
+		VersionedServiceSpec: s,
+	}
+
+	err := initializeServiceCmd(ctx, instance)
+	if err != nil {
+		return nil, err
+	}
+
+	return instance, nil
+}
+
+func initializeServiceCmd(ctx context.Context, instance *ServiceInstance) error {
+	s := instance.VersionedServiceSpec
 
 	cmd := exec.CommandContext(ctx, s.Exe, s.Args...)
 	// Note, this leaks the caller's env into the service, so it's not hermetic.
@@ -242,32 +262,18 @@ func prepareServiceInstance(ctx context.Context, s svclib.VersionedServiceSpec) 
 		cmd.WaitDelay = 1
 	}
 
-	instance := &ServiceInstance{
-		VersionedServiceSpec: s,
-		Cmd:                  cmd,
-
-		startErrFn: sync.OnceValue(cmd.Start),
-		waitErrFn:  sync.OnceValue(cmd.Wait),
-	}
+	instance.cmd = cmd
+	instance.killed = false
+	instance.startErrFn = sync.OnceValue(cmd.Start)
+	instance.waitErrFn = sync.OnceValue(cmd.Wait)
 
 	if s.HotReloadable {
 		stdin, err := cmd.StdinPipe()
 		if err != nil {
-			return nil, err
+			return err
 		}
-		instance.Stdin = stdin
-	}
-	return instance, nil
-}
-
-func stopInstance(serviceInstance *ServiceInstance) {
-	if serviceInstance.Cmd.Process == nil {
-		return
+		instance.stdin = stdin
 	}
 
-	killGroup(serviceInstance.Cmd)
-
-	for serviceInstance.Cmd.ProcessState == nil {
-		time.Sleep(5 * time.Millisecond)
-	}
+	return nil
 }
