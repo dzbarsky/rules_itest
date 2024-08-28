@@ -2,6 +2,7 @@ package runner
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -91,28 +92,40 @@ func (r *Runner) StartAll(serviceErrCh chan error) ([]topological.Task, error) {
 	return starter.CriticalPath(), err
 }
 
-func (r *Runner) StopAll() (map[string]*os.ProcessState, error) {
+func (r *Runner) StopAll() (map[string]syscall.Rusage, error) {
 	tasks := allTasks(r.serviceInstances, func(ctx context.Context, service *ServiceInstance) error {
 		if service.Type == "group" {
 			return nil
 		}
 		log.Printf("Stopping %s\n", colorize(service.VersionedServiceSpec))
-		service.Stop(syscall.SIGKILL)
+		// Rusage wrapper reinterprets SIGUSR2 as SIGKILL for the underlying binary.
+		service.Stop(syscall.SIGUSR2)
 		return nil
 	})
 	stopper := topological.NewReversedRunner(tasks)
 	err := stopper.Run(r.ctx)
 
-	states := make(map[string]*os.ProcessState)
+	rusages := make(map[string]syscall.Rusage)
 
 	for _, serviceInstance := range r.serviceInstances {
 		if serviceInstance.Type == "group" {
 			continue
 		}
-		states[serviceInstance.Label] = serviceInstance.ProcessState()
+		data, err := os.ReadFile(serviceInstance.RusageFile)
+		if err != nil {
+			log.Print("Could not read rusage for", serviceInstance.Label)
+			continue
+		}
+
+		var rusage syscall.Rusage
+		err = json.Unmarshal(data, &rusage)
+		if err != nil {
+			return nil, err
+		}
+		rusages[serviceInstance.Label] = rusage
 	}
 
-	return states, err
+	return rusages, err
 }
 
 func (r *Runner) GetStartDurations() map[string]time.Duration {

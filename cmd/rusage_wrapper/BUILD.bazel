@@ -1,0 +1,14 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "rusage_wrapper_lib",
+    srcs = ["main.go"],
+    importpath = "rules_itest/cmd/rusage_wrapper",
+    visibility = ["//visibility:private"],
+)
+
+go_binary(
+    name = "rusage_wrapper",
+    embed = [":rusage_wrapper_lib"],
+    visibility = ["//visibility:public"],
+)

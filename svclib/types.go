@@ -27,8 +27,9 @@ type ServiceSpec struct {
 // Our internal representation.
 type VersionedServiceSpec struct {
 	ServiceSpec
-	Version string
-	Color   string
+	Version    string
+	Color      string
+	RusageFile string
 }
 
 func (v VersionedServiceSpec) Colorize(label string) string {

@@ -33,6 +33,10 @@ func must(err error) {
 	}
 }
 
+func duration(t syscall.Timeval) time.Duration {
+	return time.Duration(t.Nano()) * time.Nanosecond
+}
+
 func main() {
 	serviceSpecsPath, err := runfiles.Rlocation(os.Getenv("SVCINIT_SERVICE_SPECS_RLOCATION_PATH"))
 	must(err)
@@ -217,11 +221,11 @@ func main() {
 
 		if isOneShot {
 			buf.WriteString("Target\tUser Time\tSystem Time\n")
-			states, err := r.StopAll()
+			rusages, err := r.StopAll()
 			must(err)
-			for label, state := range states {
-				buf.WriteString(fmt.Sprintf("%s\t%s\t%s\n",
-					label, state.UserTime(), state.SystemTime()))
+			for label, rusage := range rusages {
+				buf.WriteString(fmt.Sprintf("%s\t%v\t%v\n",
+					label, duration(rusage.Utime), duration(rusage.Stime)))
 			}
 		} else {
 			buf.WriteString("Target\tStartup Time\n")
@@ -383,13 +387,25 @@ func augmentServiceSpecs(
 ) (
 	map[string]svclib.VersionedServiceSpec, error,
 ) {
+	rusageWrapperBin, err := runfiles.Rlocation(os.Getenv("RUSAGE_WRAPPER_BIN_RLOCATION_PATH"))
+	if err != nil {
+		return nil, err
+	}
+
 	tmpDir := os.Getenv("TMPDIR")
 	socketDir := os.Getenv("SOCKET_DIR")
 
 	versionedServiceSpecs := make(map[string]svclib.VersionedServiceSpec, len(serviceSpecs))
 	for label, serviceSpec := range serviceSpecs {
+		f, err := os.CreateTemp("", "rusage")
+		must(err)
+
+		err = f.Close()
+		must(err)
+
 		s := svclib.VersionedServiceSpec{
 			ServiceSpec: serviceSpec,
+			RusageFile:  f.Name(),
 		}
 
 		if s.Type == "group" {
@@ -401,7 +417,8 @@ func augmentServiceSpecs(
 		if err != nil {
 			return nil, err
 		}
-		s.Exe = exePath
+		s.Exe = rusageWrapperBin
+		s.Args = append([]string{s.RusageFile, exePath}, s.Args...)
 
 		if s.HealthCheck != "" {
 			healthCheckPath, err := runfiles.Rlocation(serviceSpec.HealthCheck)
