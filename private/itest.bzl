@@ -56,6 +56,7 @@ def _run_environment(ctx, service_specs_file):
         "SVCINIT_SERVICE_SPECS_RLOCATION_PATH": to_rlocation_path(ctx, service_specs_file),
         "SVCINIT_ENABLE_PER_SERVICE_RELOAD": str(ctx.attr._enable_per_service_reload[BuildSettingInfo].value),
         "SVCINIT_GET_ASSIGNED_PORT_BIN_RLOCATION_PATH": to_rlocation_path(ctx, ctx.executable._get_assigned_port),
+        "RUSAGE_WRAPPER_BIN_RLOCATION_PATH": to_rlocation_path(ctx, ctx.executable._rusage_wrapper),
     }
 
 def _services_runfiles(ctx, services_attr_name = "services"):
@@ -65,6 +66,7 @@ def _services_runfiles(ctx, services_attr_name = "services"):
     ] + [
         ctx.attr._svcinit.default_runfiles,
         ctx.attr._get_assigned_port.default_runfiles,
+        ctx.attr._rusage_wrapper.default_runfiles,
     ]
 
 _svcinit_attrs = {
@@ -75,6 +77,11 @@ _svcinit_attrs = {
     ),
     "_get_assigned_port": attr.label(
         default = "//cmd/get_assigned_port",
+        executable = True,
+        cfg = "target",
+    ),
+    "_rusage_wrapper": attr.label(
+        default = "//cmd/rusage_wrapper",
         executable = True,
         cfg = "target",
     ),
