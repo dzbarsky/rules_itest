@@ -96,7 +96,20 @@ func main() {
 	ports, err := assignPorts(unversionedSpecs)
 	must(err)
 
-	serviceSpecs, err := augmentServiceSpecs(unversionedSpecs, ports)
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	must(err)
+
+	svcctlPort := listener.Addr().(*net.TCPAddr).Port
+	svcctlPortStr := strconv.Itoa(svcctlPort)
+	os.Setenv("SVCCTL_PORT", svcctlPortStr)
+
+	if testLabel == "" {
+		err = os.WriteFile("/tmp/svcctl_port", []byte(svcctlPortStr), 0600)
+		must(err)
+		defer os.Remove("/tmp/svcctl_port")
+	}
+
+	serviceSpecs, err := augmentServiceSpecs(unversionedSpecs, ports, svcctlPortStr)
 	must(err)
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
@@ -105,10 +118,7 @@ func main() {
 	r, err := runner.New(ctx, serviceSpecs)
 	must(err)
 
-	servicesErrCh := make(chan error, len(serviceSpecs))
-
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	must(err)
+	servicesErrCh := make(chan error, len(unversionedSpecs))
 
 	go func() {
 		defer listener.Close()
@@ -117,16 +127,6 @@ func main() {
 			log.Fatalf("svcctl.Serve: %v", err)
 		}
 	}()
-
-	port := listener.Addr().(*net.TCPAddr).Port
-	portString := strconv.Itoa(port)
-	os.Setenv("SVCCTL_PORT", portString)
-
-	if testLabel == "" {
-		err = os.WriteFile("/tmp/svcctl_port", []byte(portString), 0600)
-		must(err)
-		defer os.Remove("/tmp/svcctl_port")
-	}
 
 	signalCh := make(chan os.Signal, 1)
 	signal.Notify(signalCh, syscall.SIGINT, syscall.SIGTERM)
@@ -274,7 +274,7 @@ func main() {
 			unversionedSpecs, err := readServiceSpecs(serviceSpecsPath)
 			must(err)
 
-			serviceSpecs, err := augmentServiceSpecs(unversionedSpecs, ports)
+			serviceSpecs, err := augmentServiceSpecs(unversionedSpecs, ports, svcctlPortStr)
 			must(err)
 
 			// TODO(zbarsky): what is the right behavior here when services are crashing in ibazel mode?
@@ -380,6 +380,7 @@ func assignPorts(
 func augmentServiceSpecs(
 	serviceSpecs map[string]svclib.ServiceSpec,
 	ports svclib.Ports,
+	svcctlPort string,
 ) (
 	map[string]svclib.VersionedServiceSpec, error,
 ) {
@@ -439,6 +440,7 @@ func augmentServiceSpecs(
 				s.Env[k] = strings.ReplaceAll(v, "$${PORT}", port)
 			}
 		}
+		s.Env["SVCCTL_PORT"] = svcctlPort
 
 		versionedServiceSpecs[label] = s
 	}
