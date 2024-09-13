@@ -384,6 +384,7 @@ func augmentServiceSpecs(
 	map[string]svclib.VersionedServiceSpec, error,
 ) {
 	tmpDir := os.Getenv("TMPDIR")
+	testTmpDir := os.Getenv("TEST_TMPDIR")
 	socketDir := os.Getenv("SOCKET_DIR")
 
 	versionedServiceSpecs := make(map[string]svclib.VersionedServiceSpec, len(serviceSpecs))
@@ -446,6 +447,7 @@ func augmentServiceSpecs(
 	replacements := make([]Replacement, 0, 2+len(ports))
 	replacements = append(replacements,
 		Replacement{Old: "$${TMPDIR}", New: tmpDir},
+		Replacement{Old: "$${TEST_TMPDIR}", New: testTmpDir},
 		Replacement{Old: "$${SOCKET_DIR}", New: socketDir},
 	)
 	for label, port := range ports {
