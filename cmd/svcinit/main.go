@@ -172,7 +172,6 @@ func main() {
 		var testCmd *exec.Cmd
 		testErrCh := make(chan error, 1)
 		if testLabel != "" {
-			// TODO replace these
 			testArgs := os.Args[1:]
 
 			for i := range testArgs {
