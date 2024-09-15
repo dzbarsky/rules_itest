@@ -181,6 +181,7 @@ func main() {
 			testPath, err := runfiles.Rlocation(os.Getenv("SVCINIT_TEST_RLOCATION_PATH"))
 			must(err)
 
+			// TODO Should this also replace SOCKET_DIR, TMPDIR and TEST_TMPDIR ?
 			testEnv, err := buildTestEnv(ports)
 			must(err)
 
