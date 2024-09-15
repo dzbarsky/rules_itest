@@ -96,7 +96,9 @@ func main() {
 	ports, err := assignPorts(unversionedSpecs)
 	must(err)
 
-	serviceSpecs, err := augmentServiceSpecs(unversionedSpecs, ports)
+	replacements := getReplacementMap(ports)
+
+	serviceSpecs, err := augmentServiceSpecs(unversionedSpecs, ports, replacements)
 	must(err)
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
@@ -152,7 +154,7 @@ func main() {
 	}
 	must(err)
 
-	// API is                 NewWriter(output io.Writer, minwidth, tabwidth, padding int, padchar byte, flags uint) *Writer
+	// API is NewWriter(output io.Writer, minwidth, tabwidth, padding int, padchar byte, flags uint) *Writer
 	reportWriter := tabwriter.NewWriter(os.Stdout, 0, 8, 8, ' ', 0)
 	buf := bytes.NewBuffer(nil)
 
@@ -170,7 +172,13 @@ func main() {
 		var testCmd *exec.Cmd
 		testErrCh := make(chan error, 1)
 		if testLabel != "" {
+			// TODO replace these
 			testArgs := os.Args[1:]
+
+			for i := range testArgs {
+				testArgs[i] = fixupReplacementOccurrences(testArgs[i], replacements)
+			}
+
 			testPath, err := runfiles.Rlocation(os.Getenv("SVCINIT_TEST_RLOCATION_PATH"))
 			must(err)
 
@@ -274,7 +282,7 @@ func main() {
 			unversionedSpecs, err := readServiceSpecs(serviceSpecsPath)
 			must(err)
 
-			serviceSpecs, err := augmentServiceSpecs(unversionedSpecs, ports)
+			serviceSpecs, err := augmentServiceSpecs(unversionedSpecs, ports, replacements)
 			must(err)
 
 			// TODO(zbarsky): what is the right behavior here when services are crashing in ibazel mode?
@@ -377,15 +385,41 @@ func assignPorts(
 	return ports, nil
 }
 
-func augmentServiceSpecs(
-	serviceSpecs map[string]svclib.ServiceSpec,
-	ports svclib.Ports,
-) (
-	map[string]svclib.VersionedServiceSpec, error,
-) {
+func getReplacementMap(ports svclib.Ports) []Replacement {
 	tmpDir := os.Getenv("TMPDIR")
 	testTmpDir := os.Getenv("TEST_TMPDIR")
 	socketDir := os.Getenv("SOCKET_DIR")
+
+	replacements := make([]Replacement, 0, 3+len(ports))
+	replacements = append(replacements,
+		Replacement{Old: "$${TMPDIR}", New: tmpDir},
+		Replacement{Old: "$${TEST_TMPDIR}", New: testTmpDir},
+		Replacement{Old: "$${SOCKET_DIR}", New: socketDir},
+	)
+	for label, port := range ports {
+		replacements = append(replacements, Replacement{
+			Old: "$${" + label + "}",
+			New: port,
+		})
+	}
+
+	return replacements
+}
+
+func fixupReplacementOccurrences(value string, replacements []Replacement) string {
+	for _, r := range replacements {
+		value = strings.ReplaceAll(value, r.Old, r.New)
+	}
+	return value
+}
+
+func augmentServiceSpecs(
+	serviceSpecs map[string]svclib.ServiceSpec,
+	ports svclib.Ports,
+	replacements []Replacement,
+) (
+	map[string]svclib.VersionedServiceSpec, error,
+) {
 
 	versionedServiceSpecs := make(map[string]svclib.VersionedServiceSpec, len(serviceSpecs))
 	for label, serviceSpec := range serviceSpecs {
@@ -444,36 +478,16 @@ func augmentServiceSpecs(
 		versionedServiceSpecs[label] = s
 	}
 
-	replacements := make([]Replacement, 0, 2+len(ports))
-	replacements = append(replacements,
-		Replacement{Old: "$${TMPDIR}", New: tmpDir},
-		Replacement{Old: "$${TEST_TMPDIR}", New: testTmpDir},
-		Replacement{Old: "$${SOCKET_DIR}", New: socketDir},
-	)
-	for label, port := range ports {
-		replacements = append(replacements, Replacement{
-			Old: "$${" + label + "}",
-			New: port,
-		})
-	}
-
-	replaceAllPorts := func(s string) string {
-		for _, r := range replacements {
-			s = strings.ReplaceAll(s, r.Old, r.New)
-		}
-		return s
-	}
-
 	for label, spec := range versionedServiceSpecs {
-		spec.HttpHealthCheckAddress = replaceAllPorts(spec.HttpHealthCheckAddress)
+		spec.HttpHealthCheckAddress = fixupReplacementOccurrences(spec.HttpHealthCheckAddress, replacements)
 		for i := range spec.Args {
-			spec.Args[i] = replaceAllPorts(spec.Args[i])
+			spec.Args[i] = fixupReplacementOccurrences(spec.Args[i], replacements)
 		}
 		for i := range spec.HealthCheckArgs {
-			spec.HealthCheckArgs[i] = replaceAllPorts(spec.HealthCheckArgs[i])
+			spec.HealthCheckArgs[i] = fixupReplacementOccurrences(spec.HealthCheckArgs[i], replacements)
 		}
 		for k, v := range spec.Env {
-			spec.Env[k] = replaceAllPorts(v)
+			spec.Env[k] = fixupReplacementOccurrences(v, replacements)
 		}
 		versionedServiceSpecs[label] = spec
 	}

@@ -1,0 +1,51 @@
+load("@rules_itest//:itest.bzl", "itest_task", "service_test")
+
+sh_binary(
+    name = "test_tmpdir_exe",
+    srcs = ["escape_test_tmpdir.sh"],
+    tags = ["manual"],
+)
+
+itest_task(
+    name = "test_tmpdir_exe_task",
+    args = [
+        "$${TEST_TMPDIR}",
+    ],
+    exe = ":test_tmpdir_exe",
+    tags = [
+        "manual",
+        "no-cache",
+    ],
+)
+
+sh_test(
+    name = "noop",
+    srcs = ["noop.sh"],
+    args = [
+        "$${TEST_TMPDIR}",
+    ],
+    tags = [
+        "manual",
+        "no-cache",
+    ],
+)
+
+service_test(
+    name = "test_tmpdir_services",
+    services = [
+        ":test_tmpdir_exe_task",
+    ],
+    tags = ["no-cache"],
+    test = ":noop",
+)
+
+service_test(
+    name = "test_tmpdir_test",
+    args = [
+        # For some reason, the dollar sign need to be escaped when it's passed as an argument.
+        # And rules_itest replaces $${<variables>} with the actual value of the variable.
+        "$$$${TEST_TMPDIR}",
+    ],
+    tags = ["no-cache"],
+    test = ":test_tmpdir_exe",
+)
