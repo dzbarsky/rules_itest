@@ -10,15 +10,15 @@ func TestEnv(t *testing.T) {
 		t.Fatal("env var not passed")
 	}
 
-	if os.Getenv("ITEST_TEST_TMPDIR") == "$${TEST_TMPDIR}" {
+	if os.Getenv("ITEST_TEST_TMPDIR") != "$${TEST_TMPDIR}" {
 		t.Fatal("TEST_TMPDIR env var not replaced")
 	}
 
-	if os.Getenv("ITEST_TMPDIR") == "$${TMPDIR}" {
+	if os.Getenv("ITEST_TMPDIR") != "$${TMPDIR}" {
 		t.Fatal("TMPDIR env var not replaced")
 	}
 
-	if os.Getenv("ITEST_SOCKET_DIR") == "$${SOCKET_DIR}" {
+	if os.Getenv("ITEST_SOCKET_DIR") != "$${SOCKET_DIR}" {
 		t.Fatal("SOCKET_DIR env var not replaced")
 	}
 

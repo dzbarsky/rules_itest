@@ -184,7 +184,8 @@ func main() {
 			testPath, err := runfiles.Rlocation(os.Getenv("SVCINIT_TEST_RLOCATION_PATH"))
 			must(err)
 
-			testEnv, err := buildTestEnv(replacements)
+			// TODO Should this also replace SOCKET_DIR, TMPDIR and TEST_TMPDIR ?
+			testEnv, err := buildTestEnv(ports)
 			must(err)
 
 			log.Printf("\nExecuting test: %s, %s\n", testPath, strings.Join(testArgs, " "))
@@ -393,7 +394,6 @@ func getReplacementMap(socketDir, tmpDir, testTmpDir string, ports svclib.Ports)
 		Replacement{Old: "$${TEST_TMPDIR}", New: testTmpDir},
 		Replacement{Old: "$${SOCKET_DIR}", New: socketDir},
 	)
-
 	for label, port := range ports {
 		replacements = append(replacements, Replacement{
 			Old: "$${" + label + "}",
@@ -498,7 +498,7 @@ type Replacement struct {
 	New string
 }
 
-func buildTestEnv(replacements []Replacement) ([]string, error) {
+func buildTestEnv(ports svclib.Ports) ([]string, error) {
 	testEnvPath, err := runfiles.Rlocation(os.Getenv("SVCINIT_TEST_ENV_RLOCATION_PATH"))
 	if err != nil {
 		panic(err)
@@ -515,11 +515,26 @@ func buildTestEnv(replacements []Replacement) ([]string, error) {
 		panic(err)
 	}
 
+	replacements := make([]Replacement, 0, len(ports))
+	for label, port := range ports {
+		replacements = append(replacements, Replacement{
+			Old: "$${" + label + "}",
+			New: port,
+		})
+	}
+
+	replaceAllPorts := func(s string) string {
+		for _, r := range replacements {
+			s = strings.ReplaceAll(s, r.Old, r.New)
+		}
+		return s
+	}
+
 	// Note, this can technically specify the same var multiple times.
 	// Last one wins - hope that's what you wanted!
 	baseEnv := os.Environ()
 	for k, v := range env {
-		baseEnv = append(baseEnv, k+"="+fixupReplacementOccurrences(v, replacements))
+		baseEnv = append(baseEnv, k+"="+replaceAllPorts(v))
 	}
 
 	return baseEnv, nil
