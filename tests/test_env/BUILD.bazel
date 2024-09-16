@@ -3,6 +3,9 @@ load("@rules_itest//:itest.bzl", "itest_task", "service_test")
 
 env = {
     "ITEST_ENV_VAR": "ITEST_ENV_VAR_VALUE",
+    "ITEST_TEST_TMPDIR": "$${TEST_TMPDIR}",
+    "ITEST_TMPDIR": "$${TMPDIR}",
+    "ITEST_SOCKET_DIR": "$${SOCKET_DIR}",
 }
 
 go_test(

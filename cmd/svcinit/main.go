@@ -70,18 +70,21 @@ func main() {
 	defer os.RemoveAll(socketDir)
 
 	// If we are under `bazel run` for a service group, we may not have TEST_TMPDIR set.
-	tmpDir := os.Getenv("TEST_TMPDIR")
-	if tmpDir == "" {
+	testTmpDir := os.Getenv("TEST_TMPDIR")
+	if testTmpDir == "" {
 		var err error
-		tmpDir, err = os.MkdirTemp("", strings.ReplaceAll(testLabel, "/", "_"))
+		testTmpDir, err = os.MkdirTemp("", strings.ReplaceAll(testLabel, "/", "_"))
 		must(err)
-		defer os.RemoveAll(tmpDir)
+		defer os.RemoveAll(testTmpDir)
 	}
-	os.Setenv("TEST_TMPDIR", tmpDir)
+	os.Setenv("TEST_TMPDIR", testTmpDir)
 
+	var tmpDir string
+	var ok bool
 	// Provide a TMPDIR if one is not set.
-	if _, ok := os.LookupEnv("TMPDIR"); !ok {
-		os.Setenv("TMPDIR", os.TempDir())
+	if tmpDir, ok = os.LookupEnv("TMPDIR"); !ok {
+		tmpDir = os.TempDir()
+		os.Setenv("TMPDIR", tmpDir)
 	}
 
 	getAssignedPortBinPath, err := runfiles.Rlocation(os.Getenv("SVCINIT_GET_ASSIGNED_PORT_BIN_RLOCATION_PATH"))
@@ -96,7 +99,7 @@ func main() {
 	ports, err := assignPorts(unversionedSpecs)
 	must(err)
 
-	replacements := getReplacementMap(ports)
+	replacements := getReplacementMap(socketDir, tmpDir, testTmpDir, ports)
 
 	serviceSpecs, err := augmentServiceSpecs(unversionedSpecs, ports, replacements)
 	must(err)
@@ -182,11 +185,10 @@ func main() {
 			must(err)
 
 			// TODO Should this also replace SOCKET_DIR, TMPDIR and TEST_TMPDIR ?
-			testEnv, err := buildTestEnv(ports)
+			testEnv, err := buildTestEnv(replacements)
 			must(err)
 
-			fmt.Println("")
-			log.Printf("Executing test: %s, %s\n", testPath, strings.Join(testArgs, " "))
+			log.Printf("\nExecuting test: %s, %s\n", testPath, strings.Join(testArgs, " "))
 			testCmd = exec.CommandContext(ctx, testPath, testArgs...)
 			testCmd.Env = testEnv
 			testCmd.Stdout = os.Stdout
@@ -385,17 +387,14 @@ func assignPorts(
 	return ports, nil
 }
 
-func getReplacementMap(ports svclib.Ports) []Replacement {
-	tmpDir := os.Getenv("TMPDIR")
-	testTmpDir := os.Getenv("TEST_TMPDIR")
-	socketDir := os.Getenv("SOCKET_DIR")
-
+func getReplacementMap(socketDir, tmpDir, testTmpDir string, ports svclib.Ports) []Replacement {
 	replacements := make([]Replacement, 0, 3+len(ports))
 	replacements = append(replacements,
 		Replacement{Old: "$${TMPDIR}", New: tmpDir},
 		Replacement{Old: "$${TEST_TMPDIR}", New: testTmpDir},
 		Replacement{Old: "$${SOCKET_DIR}", New: socketDir},
 	)
+
 	for label, port := range ports {
 		replacements = append(replacements, Replacement{
 			Old: "$${" + label + "}",
@@ -500,7 +499,7 @@ type Replacement struct {
 	New string
 }
 
-func buildTestEnv(ports svclib.Ports) ([]string, error) {
+func buildTestEnv(replacements []Replacement) ([]string, error) {
 	testEnvPath, err := runfiles.Rlocation(os.Getenv("SVCINIT_TEST_ENV_RLOCATION_PATH"))
 	if err != nil {
 		panic(err)
@@ -517,26 +516,11 @@ func buildTestEnv(ports svclib.Ports) ([]string, error) {
 		panic(err)
 	}
 
-	replacements := make([]Replacement, 0, len(ports))
-	for label, port := range ports {
-		replacements = append(replacements, Replacement{
-			Old: "$${" + label + "}",
-			New: port,
-		})
-	}
-
-	replaceAllPorts := func(s string) string {
-		for _, r := range replacements {
-			s = strings.ReplaceAll(s, r.Old, r.New)
-		}
-		return s
-	}
-
 	// Note, this can technically specify the same var multiple times.
 	// Last one wins - hope that's what you wanted!
 	baseEnv := os.Environ()
 	for k, v := range env {
-		baseEnv = append(baseEnv, k+"="+replaceAllPorts(v))
+		baseEnv = append(baseEnv, k+"="+fixupReplacementOccurrences(v, replacements))
 	}
 
 	return baseEnv, nil
