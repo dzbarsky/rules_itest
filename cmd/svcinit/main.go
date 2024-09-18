@@ -46,6 +46,7 @@ func main() {
 	}
 
 	enablePerServiceReload := os.Getenv("SVCINIT_ENABLE_PER_SERVICE_RELOAD") == "True"
+	allowConfiguringTmpdir := os.Getenv("SVCINIT_ALLOW_CONFIGURING_TMPDIR") == "True"
 	shouldHotReload := os.Getenv("IBAZEL_NOTIFY_CHANGES") == "y"
 	testLabel := os.Getenv("TEST_TARGET")
 
@@ -79,9 +80,15 @@ func main() {
 	}
 	os.Setenv("TEST_TMPDIR", tmpDir)
 
-	// Provide a TMPDIR if one is not set.
-	if _, ok := os.LookupEnv("TMPDIR"); !ok {
-		os.Setenv("TMPDIR", os.TempDir())
+	if allowConfiguringTmpdir {
+		// Leave the one that is already configured, unless we don't have one.
+		if _, ok := os.LookupEnv("TMPDIR"); !ok {
+			os.Setenv("TMPDIR", os.TempDir())
+		}
+	} else {
+		// Typically it's better to match TEST_TMPDIR to ensure it's hermetic
+		// and works the same way across `bazel run` and `bazel test`
+		os.Setenv("TMPDIR", tmpDir)
 	}
 
 	getAssignedPortBinPath, err := runfiles.Rlocation(os.Getenv("SVCINIT_GET_ASSIGNED_PORT_BIN_RLOCATION_PATH"))

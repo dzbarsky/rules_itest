@@ -12,6 +12,12 @@ cc_binary(
 )
 
 bool_flag(
+    name = "allow_configuring_tmpdir",
+    build_setting_default = False,
+    visibility = ["//visibility:public"],
+)
+
+bool_flag(
     name = "enable_per_service_reload",
     build_setting_default = False,
     visibility = ["//visibility:public"],

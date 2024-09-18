@@ -53,9 +53,10 @@ def _collect_services(deps):
 
 def _run_environment(ctx, service_specs_file):
     return {
-        "SVCINIT_SERVICE_SPECS_RLOCATION_PATH": to_rlocation_path(ctx, service_specs_file),
+        "SVCINIT_ALLOW_CONFIGURING_TMPDIR": str(ctx.attr._allow_configuring_tmpdir[BuildSettingInfo].value),
         "SVCINIT_ENABLE_PER_SERVICE_RELOAD": str(ctx.attr._enable_per_service_reload[BuildSettingInfo].value),
         "SVCINIT_GET_ASSIGNED_PORT_BIN_RLOCATION_PATH": to_rlocation_path(ctx, ctx.executable._get_assigned_port),
+        "SVCINIT_SERVICE_SPECS_RLOCATION_PATH": to_rlocation_path(ctx, service_specs_file),
     }
 
 def _services_runfiles(ctx, services_attr_name = "services"):
@@ -80,6 +81,9 @@ _svcinit_attrs = {
     ),
     "_enable_per_service_reload": attr.label(
         default = "//:enable_per_service_reload",
+    ),
+    "_allow_configuring_tmpdir": attr.label(
+        default = "//:allow_configuring_tmpdir",
     ),
 }
 
