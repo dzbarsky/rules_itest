@@ -24,6 +24,7 @@ import (
 // test process (svcinit) and all its children.
 // If we were to start new process groups in tests, we could leak children (at least on Mac).
 var shouldUseProcessGroups = runtime.GOOS != "windows" && os.Getenv("BAZEL_TEST") != "1"
+var terseOutput = os.Getenv("SVCINIT_TERSE_OUTPUT") == "True"
 
 type ServiceSpecs = map[string]svclib.VersionedServiceSpec
 
@@ -55,7 +56,13 @@ func (r *Runner) StartAll(serviceErrCh chan error) ([]topological.Task, error) {
 		if service.Type == "group" {
 			return nil
 		}
-		log.Printf("Starting %s %v\n", colorize(service.VersionedServiceSpec), service.cmd.Args[1:])
+
+		if terseOutput {
+			log.Printf("Starting %s\n", colorize(service.VersionedServiceSpec))
+		} else {
+			log.Printf("Starting %s %v\n", colorize(service.VersionedServiceSpec), service.cmd.Args[1:])
+		}
+
 		startErr := service.Start(ctx)
 		if startErr != nil {
 			return startErr
