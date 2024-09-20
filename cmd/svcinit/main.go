@@ -190,7 +190,9 @@ func main() {
 			must(err)
 
 			fmt.Println("")
-			log.Printf("Executing test: %s, %s\n", testPath, strings.Join(testArgs, " "))
+			if !terseOutput {
+				log.Printf("Executing test: %s, %s\n", testPath, strings.Join(testArgs, " "))
+			}
 			testCmd = exec.CommandContext(ctx, testPath, testArgs...)
 			testCmd.Env = testEnv
 			testCmd.Stdout = os.Stdout
