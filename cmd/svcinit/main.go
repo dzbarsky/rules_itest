@@ -33,7 +33,11 @@ func must(err error) {
 	}
 }
 
+var terseOutput = os.Getenv("SVCINIT_TERSE_OUTPUT") == "True"
+
 func main() {
+	log.SetFlags(log.Ltime | log.Lmicroseconds)
+
 	serviceSpecsPath, err := runfiles.Rlocation(os.Getenv("SVCINIT_SERVICE_SPECS_RLOCATION_PATH"))
 	must(err)
 
@@ -47,6 +51,7 @@ func main() {
 
 	enablePerServiceReload := os.Getenv("SVCINIT_ENABLE_PER_SERVICE_RELOAD") == "True"
 	allowConfiguringTmpdir := os.Getenv("SVCINIT_ALLOW_CONFIGURING_TMPDIR") == "True"
+
 	shouldHotReload := os.Getenv("IBAZEL_NOTIFY_CHANGES") == "y"
 	testLabel := os.Getenv("TEST_TARGET")
 
@@ -356,7 +361,10 @@ func assignPorts(
 				qualifiedPortName += ":" + portName
 			}
 
-			fmt.Printf("Assigning port %s to %s\n", port, qualifiedPortName)
+			if !terseOutput {
+				log.Printf("Assigning port %s to %s\n", port, qualifiedPortName)
+			}
+
 			ports.Set(qualifiedPortName, port)
 
 			if !spec.SoReuseportAware {

@@ -11,6 +11,7 @@ type ServiceSpec struct {
 	Env                    map[string]string `json:"env"`
 	Exe                    string            `json:"exe"`
 	HttpHealthCheckAddress string            `json:"http_health_check_address"`
+	ExpectedStartDuration  string            `json:"expected_start_duration"`
 	HealthCheck            string            `json:"health_check"`
 	HealthCheckLabel       string            `json:"health_check_label"`
 	HealthCheckArgs        []string          `json:"health_check_args"`

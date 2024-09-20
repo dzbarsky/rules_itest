@@ -57,6 +57,7 @@ def _run_environment(ctx, service_specs_file):
         "SVCINIT_ENABLE_PER_SERVICE_RELOAD": str(ctx.attr._enable_per_service_reload[BuildSettingInfo].value),
         "SVCINIT_GET_ASSIGNED_PORT_BIN_RLOCATION_PATH": to_rlocation_path(ctx, ctx.executable._get_assigned_port),
         "SVCINIT_SERVICE_SPECS_RLOCATION_PATH": to_rlocation_path(ctx, service_specs_file),
+        "SVCINIT_TERSE_OUTPUT": str(ctx.attr._terse_svcinit_output[BuildSettingInfo].value),
     }
 
 def _services_runfiles(ctx, services_attr_name = "services"):
@@ -84,6 +85,9 @@ _svcinit_attrs = {
     ),
     "_allow_configuring_tmpdir": attr.label(
         default = "//:allow_configuring_tmpdir",
+    ),
+    "_terse_svcinit_output": attr.label(
+        default = "//:terse_svcinit_output",
     ),
 }
 
@@ -171,6 +175,7 @@ def _validate_duration(name, s):
         fail("Invalid unit for %s: %s" % (name, unit))
 
 def _itest_service_impl(ctx):
+    _validate_duration("expected_start_duration", ctx.attr.expected_start_duration)
     _validate_duration("health_check_interval", ctx.attr.health_check_interval)
 
     if ctx.attr.health_check_timeout:
@@ -186,6 +191,7 @@ def _itest_service_impl(ctx):
         "so_reuseport_aware": ctx.attr.so_reuseport_aware,
         "named_ports": ctx.attr.named_ports,
         "hot_reloadable": ctx.attr.hot_reloadable,
+        "expected_start_duration": ctx.attr.expected_start_duration,
         "health_check_interval": ctx.attr.health_check_interval,
         "health_check_timeout": ctx.attr.health_check_timeout,
     }
@@ -239,6 +245,10 @@ _itest_service_attrs = _itest_binary_attrs | {
     ),
     "health_check_args": attr.string_list(
         doc = """Arguments to pass to the health_check binary. The various defined ports will be substituted prior to being given to the health_check binary.""",
+    ),
+    "expected_start_duration": attr.string(
+        default = "0s",
+        doc = "How long the service expected to take before passing a healthcheck. Any failing health checks before this duration elapses will not be logged.",
     ),
     "health_check_interval": attr.string(
         default = "200ms",

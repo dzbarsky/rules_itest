@@ -49,9 +49,9 @@ func handleHealthCheck(ctx context.Context, r *runner.Runner, _ chan error, w ht
 		return
 	}
 
-	err = s.HealthCheck(ctx)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusServiceUnavailable)
+	isHealthy := s.HealthCheck(ctx, 0)
+	if !isHealthy {
+		http.Error(w, "Healthcheck failed", http.StatusServiceUnavailable)
 		return
 	}
 

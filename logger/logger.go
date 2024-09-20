@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"io"
+	"log"
 	"strconv"
 )
 
@@ -101,15 +102,13 @@ func Colorize(s string) string {
 
 func New(prefix string, color string, out io.Writer) io.WriteCloser {
 	return &Logger{
-		prefix: []byte(color + prefix + Reset),
-		out:    out,
+		out: log.New(out, color+prefix+Reset, log.Ltime|log.Lmicroseconds|log.Lmsgprefix),
 	}
 }
 
 type Logger struct {
-	prefix []byte
-	out    io.Writer
-	buf    bytes.Buffer
+	out *log.Logger
+	buf bytes.Buffer
 }
 
 func (l *Logger) Write(data []byte) (int, error) {
@@ -119,15 +118,11 @@ func (l *Logger) Write(data []byte) (int, error) {
 	for i, b := range data {
 		if b == '\n' {
 			line := append(
-				append(l.prefix, l.buf.Bytes()...),
+				l.buf.Bytes(),
 				data[lastNewline:i+1]...,
 			)
-			n, err := l.out.Write(line)
-			written += n
-			if err != nil {
-				return written, err
-			}
-
+			l.out.Print(string(line))
+			written += len(line)
 			l.buf.Reset()
 			lastNewline = i + 1
 		}
@@ -138,7 +133,6 @@ func (l *Logger) Write(data []byte) (int, error) {
 }
 
 func (l *Logger) Close() error {
-	data := append(l.prefix, l.buf.Bytes()...)
-	_, err := l.out.Write(data)
-	return err
+	l.out.Print(l.buf.String())
+	return nil
 }

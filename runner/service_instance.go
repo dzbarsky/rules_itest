@@ -2,7 +2,6 @@ package runner
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -28,9 +27,10 @@ type ServiceInstance struct {
 	startErrFn func() error
 	waitErrFn  func() error
 
-	mu     sync.Mutex
-	runErr error
-	killed bool
+	mu                   sync.Mutex
+	runErr               error
+	killed               bool
+	healthcheckAttempted bool
 }
 
 func (s *ServiceInstance) Start(ctx context.Context) error {
@@ -62,11 +62,16 @@ func (s *ServiceInstance) WaitUntilHealthy(ctx context.Context) error {
 		return err
 	}
 
-	sleepDuration, err := time.ParseDuration(s.VersionedServiceSpec.HealthCheckInterval)
+	sleepDuration, err := time.ParseDuration(s.HealthCheckInterval)
 	if err != nil {
 		log.Printf("failed to parse health check time duration, falling back to 200ms: %v", err)
 		// This should really not happen if we validate it properly in starlark
 		sleepDuration = time.Duration(200) * time.Millisecond
+	}
+
+	expectedStartDuration, err := time.ParseDuration(s.ExpectedStartDuration)
+	if err != nil {
+		log.Print("failed to parse expected start duration")
 	}
 
 	for {
@@ -80,13 +85,10 @@ func (s *ServiceInstance) WaitUntilHealthy(ctx context.Context) error {
 			return err
 		}
 
-		err = s.HealthCheck(ctx)
-		if err == nil {
+		if s.HealthCheck(ctx, expectedStartDuration) {
 			log.Printf("%s healthy!\n", coloredLabel)
 			break
 		}
-
-		fmt.Println(err)
 
 		time.Sleep(sleepDuration)
 	}
@@ -101,36 +103,75 @@ var httpClient = http.Client{
 	Timeout: 50 * time.Millisecond,
 }
 
-func (s *ServiceInstance) HealthCheck(ctx context.Context) error {
+func (s *ServiceInstance) HealthCheck(ctx context.Context, expectedStartDuration time.Duration) bool {
 	httpHealthCheckReq, _ := http.NewRequestWithContext(ctx, "GET", s.HttpHealthCheckAddress, nil)
 	coloredLabel := s.Colorize(s.Label)
 
+	shouldSilence := s.startTime.Add(expectedStartDuration).After(time.Now())
+
+	isHealthy := true
 	var err error
 	if s.HttpHealthCheckAddress != "" {
-		log.Printf("HTTP Healthchecking %s (pid %d) : %s\n", coloredLabel, s.Pid(), s.HttpHealthCheckAddress)
+		if !s.HealthcheckAttempted() || !shouldSilence {
+			log.Printf("HTTP Healthchecking %s (pid %d) : %s\n", coloredLabel, s.Pid(), s.HttpHealthCheckAddress)
+		}
+
+		logFunc := log.Printf
+		if shouldSilence {
+			logFunc = func(format string, v ...any) {}
+		}
 
 		var resp *http.Response
 		resp, err = httpClient.Do(httpHealthCheckReq)
-		if resp != nil {
+		if err != nil {
+			logFunc("healthcheck for %s failed: %v\n", coloredLabel, err)
+			isHealthy = false
+		} else if resp != nil {
 			if resp.StatusCode != http.StatusOK {
-				err = fmt.Errorf("healthcheck for %s failed: %v", coloredLabel, resp)
+				logFunc("healthcheck for %s failed: %v\n", coloredLabel, resp)
+				isHealthy = false
 			}
 
 			closeErr := resp.Body.Close()
 			if closeErr != nil {
-				log.Printf("error closing http body %v", closeErr)
+				logFunc("error closing http body %v", closeErr)
 			}
 		}
 
 	} else if s.ServiceSpec.HealthCheck != "" {
-		log.Printf("CMD Healthchecking %s (pid %d) : %s %v\n", coloredLabel, s.Pid(), s.Colorize(s.HealthCheckLabel), strings.Join(s.HealthCheckArgs, " "))
+		if !s.HealthcheckAttempted() || !shouldSilence {
+			if terseOutput {
+				log.Printf("CMD Healthchecking %s\n", coloredLabel)
+			} else {
+				log.Printf("CMD Healthchecking %s (pid %d) : %s %v\n", coloredLabel, s.Pid(), s.Colorize(s.HealthCheckLabel), strings.Join(s.HealthCheckArgs, " "))
+			}
+		}
+
 		cmd := exec.CommandContext(ctx, s.ServiceSpec.HealthCheck, s.HealthCheckArgs...)
-		cmd.Stdout = logger.New(s.Label+"? ", s.Color, os.Stdout)
-		cmd.Stderr = logger.New(s.Label+"? ", s.Color, os.Stderr)
+		if shouldSilence {
+			cmd.Stdout = io.Discard
+			cmd.Stderr = io.Discard
+		} else {
+			cmd.Stdout = logger.New(s.Label+"? ", s.Color, os.Stdout)
+			cmd.Stderr = logger.New(s.Label+"? ", s.Color, os.Stderr)
+		}
 		err = cmd.Run()
+		if err != nil {
+			cmd.Stdout.Write([]byte(err.Error()))
+			isHealthy = false
+		}
 	}
 
-	return err
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.healthcheckAttempted = true
+	return isHealthy
+}
+
+func (s *ServiceInstance) HealthcheckAttempted() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.healthcheckAttempted
 }
 
 func (s *ServiceInstance) StartTime() time.Time {
