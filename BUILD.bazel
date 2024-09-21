@@ -28,3 +28,11 @@ bool_flag(
     build_setting_default = False,
     visibility = ["//visibility:public"],
 )
+
+# If set, svcinit will not shutdown services when using `bazel run` on a test target.
+# This will match the behavior of `bazel run` on a service or service_group.
+bool_flag(
+    name = "keep_services_up",
+    build_setting_default = False,
+    visibility = ["//visibility:public"],
+)

@@ -33,7 +33,12 @@ func must(err error) {
 	}
 }
 
-var terseOutput = os.Getenv("SVCINIT_TERSE_OUTPUT") == "True"
+var (
+	terseOutput            = os.Getenv("SVCINIT_TERSE_OUTPUT") == "True"
+	allowConfiguringTmpdir = os.Getenv("SVCINIT_ALLOW_CONFIGURING_TMPDIR") == "True"
+	enablePerServiceReload = os.Getenv("SVCINIT_ENABLE_PER_SERVICE_RELOAD") == "True"
+	shouldKeepServicesUp   = os.Getenv("SVCINIT_KEEP_SERVICES_UP") == "True"
+)
 
 func main() {
 	log.SetFlags(log.Ltime | log.Lmicroseconds)
@@ -48,9 +53,6 @@ func main() {
 		parts := strings.SplitN(kv, "=", 2)
 		os.Setenv(parts[0], parts[1])
 	}
-
-	enablePerServiceReload := os.Getenv("SVCINIT_ENABLE_PER_SERVICE_RELOAD") == "True"
-	allowConfiguringTmpdir := os.Getenv("SVCINIT_ALLOW_CONFIGURING_TMPDIR") == "True"
 
 	shouldHotReload := os.Getenv("IBAZEL_NOTIFY_CHANGES") == "y"
 	testLabel := os.Getenv("TEST_TARGET")
@@ -100,7 +102,7 @@ func main() {
 	must(err)
 	os.Setenv("GET_ASSIGNED_PORT_BIN", getAssignedPortBinPath)
 
-	isOneShot := !shouldHotReload && testLabel != ""
+	isOneShot := !shouldHotReload && testLabel != "" && !shouldKeepServicesUp
 
 	unversionedSpecs, err := readServiceSpecs(serviceSpecsPath)
 	must(err)
