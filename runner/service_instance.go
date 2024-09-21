@@ -104,14 +104,18 @@ var httpClient = http.Client{
 }
 
 func (s *ServiceInstance) HealthCheck(ctx context.Context, expectedStartDuration time.Duration) bool {
-	httpHealthCheckReq, _ := http.NewRequestWithContext(ctx, "GET", s.HttpHealthCheckAddress, nil)
 	coloredLabel := s.Colorize(s.Label)
-
 	shouldSilence := s.startTime.Add(expectedStartDuration).After(time.Now())
 
 	isHealthy := true
 	var err error
 	if s.HttpHealthCheckAddress != "" {
+		httpHealthCheckReq, err := http.NewRequestWithContext(ctx, "GET", s.HttpHealthCheckAddress, nil)
+		if err != nil {
+			log.Printf("Failed to construct healthcheck request for %s: %v\n", coloredLabel, err)
+			return false
+		}
+
 		if !s.HealthcheckAttempted() || !shouldSilence {
 			log.Printf("HTTP Healthchecking %s (pid %d) : %s\n", coloredLabel, s.Pid(), s.HttpHealthCheckAddress)
 		}

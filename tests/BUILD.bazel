@@ -112,3 +112,22 @@ itest_service(
     exe = "//go_service",
     http_health_check_address = "http://127.0.0.1:$${PORT}",
 )
+
+# Test port assignment through a group
+itest_service(
+    name = "_speedy_service2",
+    args = [
+        "-port",
+        "$${@@//:speedy_service2:port}",
+    ],
+    env = {"foo": "bar"},
+    exe = "//go_service",
+    http_health_check_address = "http://127.0.0.1:$${@@//:speedy_service2:port}",
+    tags = ["manual"],
+)
+
+itest_service_group(
+    name = "speedy_service2",
+    services = [":_speedy_service"],
+    named_ports = ["port"],
+)

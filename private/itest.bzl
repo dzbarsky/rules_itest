@@ -56,7 +56,7 @@ def _run_environment(ctx, service_specs_file):
         # Flags
         "SVCINIT_ALLOW_CONFIGURING_TMPDIR": str(ctx.attr._allow_configuring_tmpdir[BuildSettingInfo].value),
         "SVCINIT_ENABLE_PER_SERVICE_RELOAD": str(ctx.attr._enable_per_service_reload[BuildSettingInfo].value),
-        "SVCINIT_KEEP_SERVICES_UP": str(ctx.attr.keep_services_up[BuildSettingInfo].value),
+        "SVCINIT_KEEP_SERVICES_UP": str(ctx.attr._keep_services_up[BuildSettingInfo].value),
         "SVCINIT_TERSE_OUTPUT": str(ctx.attr._terse_svcinit_output[BuildSettingInfo].value),
 
         # Other configuration
@@ -217,8 +217,8 @@ def _itest_service_impl(ctx):
 
     return _itest_binary_impl(ctx, extra_service_spec_kwargs, extra_exe_runfiles)
 
-_itest_service_attrs = _itest_binary_attrs | {
-    # Note, autoassigning a port is a little racy. If you can stick to hardcoded ports and network namespace, you should prefer that.
+_port_assignment_attrs = {
+  # Note, autoassigning a port is a little racy. If you can stick to hardcoded ports and network namespace, you should prefer that.
     "autoassign_port": attr.bool(
         doc = """If true, the service manager will pick a free port and assign it to the service.
         The port will be interpolated into `$${PORT}` in the service's `http_health_check_address` and `args`.
@@ -242,6 +242,16 @@ _itest_service_attrs = _itest_binary_attrs | {
 
         Named ports are accessible through the service-port mapping. For more details, see `autoassign_port`.""",
     ),
+    "so_reuseport_aware": attr.bool(
+        doc = """If set, the service manager will not release the autoassigned port. The service binary must use SO_REUSEPORT when binding it.
+        This reduces the possibility of port collisions when running many service_tests in parallel, or when code binds port 0 without being
+        aware of the port assignment mechanism.
+
+        Must only be set when `autoassign_port` is enabled or `named_ports` are used.""",
+    ),
+}
+
+_itest_service_attrs = _itest_binary_attrs | _port_assignment_attrs | {
     "health_check": attr.label(
         cfg = "target",
         mandatory = False,
@@ -274,13 +284,6 @@ _itest_service_attrs = _itest_binary_attrs | {
         This check will be retried until it returns a 200 HTTP code. When used in conjunction with autoassigned ports, `$${@@//label/for:service:port_name}` can be used in the address.
         Example: `http_health_check_address = "http://127.0.0.1:$${@@//label/for:service:port_name}",`""",
     ),
-    "so_reuseport_aware": attr.bool(
-        doc = """If set, the service manager will not release the autoassigned port. The service binary must use SO_REUSEPORT when binding it.
-        This reduces the possibility of port collisions when running many service_tests in parallel, or when code binds port 0 without being
-        aware of the port assignment mechanism.
-
-        Must only be set when `autoassign_port` is enabled or `named_ports` are used.""",
-    ),
 }
 
 itest_service = rule(
@@ -309,10 +312,17 @@ All [common binary attributes](https://bazel.build/reference/be/common-definitio
 
 def _itest_service_group_impl(ctx):
     services = _collect_services(ctx.attr.services)
+
+    if ctx.attr.so_reuseport_aware and not (ctx.attr.autoassign_port or ctx.attr.named_ports):
+        fail("SO_REUSEPORT awareness only makes sense when using port autoassignment")
+
     service = struct(
         type = "group",
         label = str(ctx.label),
         deps = [str(service.label) for service in ctx.attr.services],
+        autoassign_port = ctx.attr.autoassign_port,
+        so_reuseport_aware = ctx.attr.so_reuseport_aware,
+        named_ports = ctx.attr.named_ports,
     )
     services[service.label] = service
 
@@ -327,12 +337,12 @@ def _itest_service_group_impl(ctx):
         _ServiceGroupInfo(services = services),
     ]
 
-_itest_service_group_attrs = {
+_itest_service_group_attrs = _port_assignment_attrs | _svcinit_attrs | {
     "services": attr.label_list(
         providers = [_ServiceGroupInfo],
         doc = "Services/tasks that comprise this group. Can be `itest_service`, `itest_task`, or `itest_service_group`.",
     ),
-} | _svcinit_attrs
+}
 
 itest_service_group = rule(
     implementation = _itest_service_group_impl,
