@@ -23,6 +23,7 @@ type ServiceSpec struct {
 	SoReuseportAware       bool              `json:"so_reuseport_aware"`
 	NamedPorts             []string          `json:"named_ports"`
 	HotReloadable          bool              `json:"hot_reloadable"`
+	PortAliases            map[string]string `json:"port_aliases"`
 }
 
 // Our internal representation.

@@ -217,8 +217,8 @@ def _itest_service_impl(ctx):
 
     return _itest_binary_impl(ctx, extra_service_spec_kwargs, extra_exe_runfiles)
 
-_port_assignment_attrs = {
-  # Note, autoassigning a port is a little racy. If you can stick to hardcoded ports and network namespace, you should prefer that.
+_itest_service_attrs = _itest_binary_attrs | {
+    # Note, autoassigning a port is a little racy. If you can stick to hardcoded ports and network namespace, you should prefer that.
     "autoassign_port": attr.bool(
         doc = """If true, the service manager will pick a free port and assign it to the service.
         The port will be interpolated into `$${PORT}` in the service's `http_health_check_address` and `args`.
@@ -249,9 +249,10 @@ _port_assignment_attrs = {
 
         Must only be set when `autoassign_port` is enabled or `named_ports` are used.""",
     ),
-}
-
-_itest_service_attrs = _itest_binary_attrs | _port_assignment_attrs | {
+    "expected_start_duration": attr.string(
+        default = "0s",
+        doc = "How long the service expected to take before passing a healthcheck. Any failing health checks before this duration elapses will not be logged.",
+    ),
     "health_check": attr.label(
         cfg = "target",
         mandatory = False,
@@ -262,10 +263,6 @@ _itest_service_attrs = _itest_binary_attrs | _port_assignment_attrs | {
     ),
     "health_check_args": attr.string_list(
         doc = """Arguments to pass to the health_check binary. The various defined ports will be substituted prior to being given to the health_check binary.""",
-    ),
-    "expected_start_duration": attr.string(
-        default = "0s",
-        doc = "How long the service expected to take before passing a healthcheck. Any failing health checks before this duration elapses will not be logged.",
     ),
     "health_check_interval": attr.string(
         default = "200ms",
@@ -313,16 +310,11 @@ All [common binary attributes](https://bazel.build/reference/be/common-definitio
 def _itest_service_group_impl(ctx):
     services = _collect_services(ctx.attr.services)
 
-    if ctx.attr.so_reuseport_aware and not (ctx.attr.autoassign_port or ctx.attr.named_ports):
-        fail("SO_REUSEPORT awareness only makes sense when using port autoassignment")
-
     service = struct(
         type = "group",
         label = str(ctx.label),
         deps = [str(service.label) for service in ctx.attr.services],
-        autoassign_port = ctx.attr.autoassign_port,
-        so_reuseport_aware = ctx.attr.so_reuseport_aware,
-        named_ports = ctx.attr.named_ports,
+        port_aliases = ctx.attr.port_aliases
     )
     services[service.label] = service
 
@@ -337,7 +329,12 @@ def _itest_service_group_impl(ctx):
         _ServiceGroupInfo(services = services),
     ]
 
-_itest_service_group_attrs = _port_assignment_attrs | _svcinit_attrs | {
+_itest_service_group_attrs = _svcinit_attrs | {
+    "port_aliases": attr.string_dict(
+        doc = """Port aliases allow you to 're-export' another service's port as belonging to this service group.
+This can be used to create abstractions (such as an itest_service combined with an itest_task) but not leak
+their implementation through how client code accesses port names.""",
+    ),
     "services": attr.label_list(
         providers = [_ServiceGroupInfo],
         doc = "Services/tasks that comprise this group. Can be `itest_service`, `itest_task`, or `itest_service_group`.",
