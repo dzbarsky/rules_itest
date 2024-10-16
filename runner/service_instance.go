@@ -31,6 +31,7 @@ type ServiceInstance struct {
 	runErr               error
 	killed               bool
 	healthcheckAttempted bool
+	done                 bool
 }
 
 func (s *ServiceInstance) Start(ctx context.Context) error {
@@ -212,6 +213,18 @@ func (s *ServiceInstance) Stop(sig syscall.Signal) error {
 		return err
 	}
 
+	for {
+		shouldBreak := func() bool {
+			s.mu.Lock()
+			defer s.mu.Unlock()
+			return s.done
+		}()
+		if shouldBreak {
+			break
+		}
+
+		time.Sleep(5 * time.Millisecond)
+	}
 	for s.cmd.ProcessState == nil {
 		time.Sleep(5 * time.Millisecond)
 	}
@@ -235,4 +248,10 @@ func (s *ServiceInstance) Killed() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.killed
+}
+
+func (s *ServiceInstance) SetDone() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.done = true
 }

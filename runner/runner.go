@@ -272,7 +272,11 @@ func initializeServiceCmd(ctx context.Context, instance *ServiceInstance) error 
 	instance.cmd = cmd
 	instance.killed = false
 	instance.startErrFn = sync.OnceValue(cmd.Start)
-	instance.waitErrFn = sync.OnceValue(cmd.Wait)
+	instance.waitErrFn = sync.OnceValue(func() error {
+		res := cmd.Wait()
+		instance.SetDone()
+		return res
+	})
 
 	if s.HotReloadable {
 		stdin, err := cmd.StdinPipe()
