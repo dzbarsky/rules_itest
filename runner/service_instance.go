@@ -213,21 +213,10 @@ func (s *ServiceInstance) Stop(sig syscall.Signal) error {
 		return err
 	}
 
-	for {
-		shouldBreak := func() bool {
-			s.mu.Lock()
-			defer s.mu.Unlock()
-			return s.done
-		}()
-		if shouldBreak {
-			break
-		}
-
+	for !s.isDone() {
 		time.Sleep(5 * time.Millisecond)
 	}
-	for s.cmd.ProcessState == nil {
-		time.Sleep(5 * time.Millisecond)
-	}
+	
 	return nil
 }
 
@@ -248,6 +237,12 @@ func (s *ServiceInstance) Killed() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.killed
+}
+
+func (s *ServiceInstance) isDone() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.done && s.cmd.ProcessState != nil
 }
 
 func (s *ServiceInstance) SetDone() {
