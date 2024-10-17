@@ -385,11 +385,6 @@ def _service_test_impl(ctx):
                 fail("Env key %s specified both in raw test and service_test" % k)
             env[k] = v
 
-    if InstrumentedFilesInfo in ctx.attr.test:
-        instrumented_files_info = ctx.attr.test[InstrumentedFilesInfo]
-    else:
-        instrumented_files_info = InstrumentedFilesInfo()
-
     env_file = ctx.actions.declare_file(ctx.label.name + ".env.json")
     ctx.actions.write(
         output = env_file,
@@ -408,7 +403,6 @@ def _service_test_impl(ctx):
     return [
         RunEnvironmentInfo(environment = fixed_env),
         DefaultInfo(runfiles = runfiles),
-        instrumented_files_info,
     ]
 
 _service_test_attrs = {
