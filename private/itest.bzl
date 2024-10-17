@@ -314,7 +314,7 @@ def _itest_service_group_impl(ctx):
         type = "group",
         label = str(ctx.label),
         deps = [str(service.label) for service in ctx.attr.services],
-        port_aliases = ctx.attr.port_aliases
+        port_aliases = ctx.attr.port_aliases,
     )
     services[service.label] = service
 
@@ -403,7 +403,6 @@ def _service_test_impl(ctx):
     return [
         RunEnvironmentInfo(environment = fixed_env),
         DefaultInfo(runfiles = runfiles),
-        coverage_common.instrumented_files_info(ctx, dependency_attributes = ["test"]),
     ]
 
 _service_test_attrs = {
@@ -416,6 +415,15 @@ _service_test_attrs = {
         doc = "The service manager will merge these variables into the environment when spawning the underlying binary.",
     ),
     "data": attr.label_list(allow_files = True),
+    ## This is taken directly from rules_go: https://github.com/bazel-contrib/rules_go/blob/85eef05357c9421eaa568d101e62355384bc49bb/go/private/rules/test.bzl#L442-L457
+    # Required for Bazel to merge coverage reports for Go and other
+    # languages into a single report per test.
+    # Using configuration_field ensures that the tool is only built when
+    # run with bazel coverage, not with bazel test.
+    "_lcov_merger": attr.label(
+        default = configuration_field(fragment = "coverage", name = "output_generator"),
+        cfg = "exec",
+    ),
 } | _itest_service_group_attrs
 
 service_test = rule(
