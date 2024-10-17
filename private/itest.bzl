@@ -422,14 +422,6 @@ _service_test_attrs = {
     ),
     "data": attr.label_list(allow_files = True),
     ## This is taken directly from rules_go: https://github.com/bazel-contrib/rules_go/blob/85eef05357c9421eaa568d101e62355384bc49bb/go/private/rules/test.bzl#L442-L457
-    # Required for Bazel to collect coverage of instrumented C/C++ binaries
-    # executed by go_test.
-    # This is just a shell script and thus cheap enough to depend on
-    # unconditionally.
-    "_collect_cc_coverage": attr.label(
-        default = "@bazel_tools//tools/test:collect_cc_coverage",
-        cfg = "exec",
-    ),
     # Required for Bazel to merge coverage reports for Go and other
     # languages into a single report per test.
     # Using configuration_field ensures that the tool is only built when
