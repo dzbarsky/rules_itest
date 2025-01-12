@@ -59,8 +59,7 @@ def _run_environment(ctx, service_specs_file):
         "SVCINIT_KEEP_SERVICES_UP": str(ctx.attr._keep_services_up[BuildSettingInfo].value),
         "SVCINIT_TERSE_OUTPUT": str(ctx.attr._terse_svcinit_output[BuildSettingInfo].value),
 
-        # Other configuration
-        "SVCINIT_GET_ASSIGNED_PORT_BIN_RLOCATION_PATH": to_rlocation_path(ctx, ctx.executable._get_assigned_port),
+        # Specs
         "SVCINIT_SERVICE_SPECS_RLOCATION_PATH": to_rlocation_path(ctx, service_specs_file),
     }
 
@@ -70,17 +69,11 @@ def _services_runfiles(ctx, services_attr_name = "services"):
         for service in getattr(ctx.attr, services_attr_name)
     ] + [
         ctx.attr._svcinit.default_runfiles,
-        ctx.attr._get_assigned_port.default_runfiles,
     ]
 
 _svcinit_attrs = {
     "_svcinit": attr.label(
         default = "//cmd/svcinit",
-        executable = True,
-        cfg = "target",
-    ),
-    "_get_assigned_port": attr.label(
-        default = "//cmd/get_assigned_port",
         executable = True,
         cfg = "target",
     ),

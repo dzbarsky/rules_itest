@@ -56,5 +56,9 @@ go_library(
 go_binary(
     name = "svcinit",
     embed = [":svcinit_lib"],
+    data = ["//cmd/get_assigned_port"],
+    x_defs = {
+        "getAssignedPortRlocationPath": "$(rlocationpath //cmd/get_assigned_port)",
+    },
     visibility = ["//visibility:public"],
 )

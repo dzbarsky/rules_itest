@@ -40,6 +40,9 @@ var (
 	shouldKeepServicesUp   = os.Getenv("SVCINIT_KEEP_SERVICES_UP") == "True"
 )
 
+// Assigned by x_def
+var getAssignedPortRlocationPath string
+
 func main() {
 	log.SetFlags(log.Ltime | log.Lmicroseconds)
 
@@ -98,7 +101,7 @@ func main() {
 		os.Setenv("TMPDIR", tmpDir)
 	}
 
-	getAssignedPortBinPath, err := runfiles.Rlocation(os.Getenv("SVCINIT_GET_ASSIGNED_PORT_BIN_RLOCATION_PATH"))
+	getAssignedPortBinPath, err := runfiles.Rlocation(getAssignedPortRlocationPath)
 	must(err)
 	os.Setenv("GET_ASSIGNED_PORT_BIN", getAssignedPortBinPath)
 
