@@ -123,9 +123,9 @@ func main() {
 	os.Setenv("SVCCTL_PORT", svcctlPortStr)
 
 	if testLabel == "" {
-		err = os.WriteFile("/tmp/svcctl_port", []byte(svcctlPortStr), 0600)
+		err = os.WriteFile(tmpDir + "/svcctl_port", []byte(svcctlPortStr), 0600)
 		must(err)
-		defer os.Remove("/tmp/svcctl_port")
+		defer os.Remove(tmpDir + "/svcctl_port")
 	}
 
 	serviceSpecs, err := augmentServiceSpecs(unversionedSpecs, ports, svcctlPortStr)
