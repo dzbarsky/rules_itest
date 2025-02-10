@@ -37,6 +37,7 @@ This can be used in conjunction with the `/v0/port` API to let other tools inter
 
 load("@aspect_bazel_lib//lib:paths.bzl", "to_rlocation_path")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
+load("expansion.bzl", "expansion")
 
 _ServiceGroupInfo = provider(
     doc = "Info about a service group",
@@ -124,10 +125,16 @@ def _itest_binary_impl(ctx, extra_service_spec_kwargs, extra_exe_runfiles = []):
         for arg in ctx.attr.args
     ]
 
-    env = {
-        var: ctx.expand_location(val, targets = ctx.attr.data)
-        for (var, val) in ctx.attr.env.items()
-    }
+    # Use expansion module vendored from rules_bats to expand both location, substitutions within
+    # supplied env dict, and substitutions with environment supplied to bazel via --test_env
+    env = expansion.expand_with_toolchains_and_location(
+        ctx,
+        deps = ctx.attr.data,
+        source_env_dict = ctx.attr.env,
+        additional_lookup_dict = {
+            "BINDIR": ctx.bin_dir.path,
+        } | ctx.configuration.test_env
+    )
 
     if RunEnvironmentInfo in ctx.attr.exe:
         for k, v in ctx.attr.exe[RunEnvironmentInfo].environment.items():
@@ -371,7 +378,17 @@ def _service_test_impl(ctx):
         _collect_services(ctx.attr.services),
     )
 
-    env = dict(ctx.attr.env)
+    # Use expansion module vendored from rules_bats to expand both location, substitutions within
+    # supplied env dict, and substitutions with environment supplied to bazel via --test_env
+    env = expansion.expand_with_toolchains_and_location(
+        ctx,
+        deps = ctx.attr.data,
+        source_env_dict = ctx.attr.env,
+        additional_lookup_dict = {
+            "BINDIR": ctx.bin_dir.path,
+        } | ctx.configuration.test_env
+    )
+
     if RunEnvironmentInfo in ctx.attr.test:
         for k, v in ctx.attr.test[RunEnvironmentInfo].environment.items():
             if k in env:
