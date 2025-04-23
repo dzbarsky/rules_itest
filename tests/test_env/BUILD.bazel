@@ -3,13 +3,20 @@ load("@rules_itest//:itest.bzl", "itest_task", "service_test")
 
 env = {
     "ITEST_ENV_VAR": "ITEST_ENV_VAR_VALUE",
+    "ENV_RUNFILE": "$(location :test.txt)",
 }
 
 go_test(
     name = "test_env_test",
     srcs = ["env_test.go"],
+    data = [
+        ":test.txt",
+    ],
     env = env,
     tags = ["manual"],
+    deps = [
+        "@rules_go//go/tools/bazel:go_default_library",
+    ],
 )
 
 service_test(
@@ -21,10 +28,16 @@ go_test(
     name = "_env_not_specified",
     srcs = ["env_test.go"],
     tags = ["manual"],
+    deps = [
+        "@rules_go//go/tools/bazel:go_default_library",
+    ],
 )
 
 service_test(
     name = "env_specified_in_service_test",
+    data = [
+        ":test.txt",
+    ],
     env = env,
     test = ":_env_not_specified",
 )
