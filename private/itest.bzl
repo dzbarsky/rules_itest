@@ -371,12 +371,15 @@ def _service_test_impl(ctx):
         _collect_services(ctx.attr.services),
     )
 
-    env = dict(ctx.attr.env)
+    env = {
+        var: ctx.expand_location(val, targets = ctx.attr.data)
+        for (var, val) in ctx.attr.env.items()
+    }
     if RunEnvironmentInfo in ctx.attr.test:
         for k, v in ctx.attr.test[RunEnvironmentInfo].environment.items():
             if k in env:
                 fail("Env key %s specified both in raw test and service_test" % k)
-            env[k] = v
+            env[k] = ctx.expand_location(v, ctx.attr.data)
 
     env_file = ctx.actions.declare_file(ctx.label.name + ".env.json")
     ctx.actions.write(
@@ -388,7 +391,7 @@ def _service_test_impl(ctx):
     fixed_env["SVCINIT_TEST_RLOCATION_PATH"] = to_rlocation_path(ctx, ctx.executable.test)
     fixed_env["SVCINIT_TEST_ENV_RLOCATION_PATH"] = to_rlocation_path(ctx, env_file)
 
-    runfiles = ctx.runfiles([service_specs_file, env_file])
+    runfiles = ctx.runfiles(ctx.files.data + [service_specs_file, env_file])
     runfiles = runfiles.merge_all(_services_runfiles(ctx) + [
         ctx.attr.test.default_runfiles,
     ])
