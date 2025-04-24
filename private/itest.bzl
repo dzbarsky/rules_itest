@@ -108,6 +108,20 @@ _itest_binary_attrs = {
     ),
 } | _svcinit_attrs
 
+def _compute_env(ctx, underlying_target):
+    env = {
+        k: ctx.expand_location(v, targets = ctx.attr.data)
+        for (k, v) in ctx.attr.env.items()
+    }
+
+    if RunEnvironmentInfo in underlying_target:
+        for k, v in underlying_target[RunEnvironmentInfo].environment.items():
+            if k in env:
+                fail("Env key %s specified both in underlying target and itest wrapper rule" % k)
+            env[k] = ctx.expand_location(v, targets = ctx.attr.data)
+
+    return env
+
 def _itest_binary_impl(ctx, extra_service_spec_kwargs, extra_exe_runfiles = []):
     exe_runfiles = [ctx.attr.exe.default_runfiles] + extra_exe_runfiles
 
@@ -124,16 +138,6 @@ def _itest_binary_impl(ctx, extra_service_spec_kwargs, extra_exe_runfiles = []):
         for arg in ctx.attr.args
     ]
 
-    env = {
-        var: ctx.expand_location(val, targets = ctx.attr.data)
-        for (var, val) in ctx.attr.env.items()
-    }
-
-    if RunEnvironmentInfo in ctx.attr.exe:
-        for k, v in ctx.attr.exe[RunEnvironmentInfo].environment.items():
-            if k in env:
-                fail("Env key %s specified both in raw binary and itest wrapper rule" % k)
-            env[k] = v
 
     if version_file:
         extra_service_spec_kwargs["version_file"] = to_rlocation_path(ctx, version_file)
@@ -142,7 +146,7 @@ def _itest_binary_impl(ctx, extra_service_spec_kwargs, extra_exe_runfiles = []):
         label = str(ctx.label),
         exe = to_rlocation_path(ctx, ctx.executable.exe),
         args = args,
-        env = env,
+        env = _compute_env(ctx, ctx.attr.exe),
         deps = [str(dep.label) for dep in ctx.attr.deps],
         **extra_service_spec_kwargs
     )
@@ -371,20 +375,10 @@ def _service_test_impl(ctx):
         _collect_services(ctx.attr.services),
     )
 
-    env = {
-        var: ctx.expand_location(val, targets = ctx.attr.data)
-        for (var, val) in ctx.attr.env.items()
-    }
-    if RunEnvironmentInfo in ctx.attr.test:
-        for k, v in ctx.attr.test[RunEnvironmentInfo].environment.items():
-            if k in env:
-                fail("Env key %s specified both in raw test and service_test" % k)
-            env[k] = ctx.expand_location(v, ctx.attr.data)
-
     env_file = ctx.actions.declare_file(ctx.label.name + ".env.json")
     ctx.actions.write(
         output = env_file,
-        content = json.encode(env),
+        content = json.encode(_compute_env(ctx, ctx.attr.test)),
     )
 
     fixed_env = _run_environment(ctx, service_specs_file)

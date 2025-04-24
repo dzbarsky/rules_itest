@@ -129,9 +129,9 @@ itest_service(
 
 itest_service_group(
     name = "speedy_service2",
-    services = [":_speedy_service2"],
     port_aliases = {
         "": "@@//:_speedy_service2",
         "port": "@@//:_speedy_service2",
     },
+    services = [":_speedy_service2"],
 )

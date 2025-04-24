@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/bazelbuild/rules_go/go/tools/bazel"
+	"github.com/bazelbuild/rules_go/go/runfiles"
 )
 
 func TestEnv(t *testing.T) {
@@ -14,7 +14,7 @@ func TestEnv(t *testing.T) {
 }
 
 func TestRLocation(t *testing.T) {
-	filepath, err := bazel.Runfile(os.Getenv("ENV_RUNFILE"))
+	filepath, err := runfiles.Rlocation(os.Getenv("ENV_RUNFILE"))
 	if err != nil {
 		t.Fatal(err)
 	}
