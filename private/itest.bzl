@@ -204,10 +204,14 @@ def _itest_service_impl(ctx):
     extra_service_spec_kwargs = {
         "type": "service",
         "http_health_check_address": ctx.attr.http_health_check_address,
+        "port": str(ctx.attr.port[BuildSettingInfo].value),
         "autoassign_port": ctx.attr.autoassign_port,
         "so_reuseport_aware": ctx.attr.so_reuseport_aware,
         "deferred": ctx.attr.deferred,
-        "named_ports": ctx.attr.named_ports,
+        "named_ports": {
+            name: str(port_flag[BuildSettingInfo].value)
+            for port_flag, name in ctx.attr.named_ports.items()
+        },
         "hot_reloadable": ctx.attr.hot_reloadable,
         "expected_start_duration": ctx.attr.expected_start_duration,
         "health_check_interval": ctx.attr.health_check_interval,
@@ -249,10 +253,11 @@ _itest_service_attrs = _itest_binary_attrs | {
         For example, the following Bash command:
         `PORT=$($GET_ASSIGNED_PORT_BIN @@//label/for:service)`""",
     ),
-    "named_ports": attr.string_list(
+    "port": attr.label(doc="Internal"),
+    "named_ports": attr.label_keyed_string_dict(
         doc = """For each element of the list, the service manager will pick a free port and assign it to the service.
         The port's fully-qualified name is the service's fully-qualified label and the port name, separated by a colon.
-        For example, a port assigned with `named_ports = ["http_port"]` will be assigned a fully-qualified name of `@@//label/for:service:http_port`.
+        For example, a port assigned with `named_ports = ["http_port"]` will be assigned a fully-qualified name of `@@//label/for:service.http_port`.
 
         Named ports are accessible through the service-port mapping. For more details, see `autoassign_port`.""",
     ),
