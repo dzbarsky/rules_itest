@@ -132,7 +132,7 @@ func (s *ServiceInstance) HealthCheck(ctx context.Context, expectedStartDuration
 			logFunc("healthcheck for %s failed: %v\n", coloredLabel, err)
 			isHealthy = false
 		} else if resp != nil {
-			if resp.StatusCode != http.StatusOK {
+			if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
 				logFunc("healthcheck for %s failed: %v\n", coloredLabel, resp)
 				isHealthy = false
 			}
@@ -216,7 +216,7 @@ func (s *ServiceInstance) Stop(sig syscall.Signal) error {
 	for !s.isDone() {
 		time.Sleep(5 * time.Millisecond)
 	}
-	
+
 	return nil
 }
 
