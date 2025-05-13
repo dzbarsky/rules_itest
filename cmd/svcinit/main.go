@@ -8,11 +8,11 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"maps"
 	"net"
 	"os"
 	"os/exec"
 	"os/signal"
-	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -329,15 +329,15 @@ func assignPorts(
 	ports := svclib.Ports{}
 
 	for label, spec := range serviceSpecs {
-		namedPorts := slices.Clone(spec.NamedPorts)
+		namedPorts := maps.Clone(spec.NamedPorts)
 		if spec.AutoassignPort {
-			namedPorts = append(namedPorts, "")
+			namedPorts[""] = spec.Port
 		}
 
 		// Note, this can cause collisions. So be careful!
 		// To avoid port collisions, set the `so_reuseport_aware` option on the service definition
 		// and use the SO_REUSEPORT socket option in your services.
-		for _, portName := range namedPorts {
+		for portName, port := range namedPorts {
 			// We do a bit of a dance here to set SO_LINGER to 0. For details, see
 			// https://stackoverflow.com/questions/71975992/what-really-is-the-linger-time-that-can-be-set-with-so-linger-on-sockets
 			lc := net.ListenConfig{
@@ -356,11 +356,11 @@ func assignPorts(
 				},
 			}
 
-			listener, err := lc.Listen(context.Background(), "tcp", "127.0.0.1:0")
+			listener, err := lc.Listen(context.Background(), "tcp", "127.0.0.1:"+port)
 			if err != nil {
 				return nil, err
 			}
-			_, port, err := net.SplitHostPort(listener.Addr().String())
+			_, port, err = net.SplitHostPort(listener.Addr().String())
 			if err != nil {
 				return nil, err
 			}

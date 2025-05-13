@@ -1,5 +1,6 @@
 """ Rules for running services in integration tests. """
 
+load("@bazel_skylib//rules:common_settings.bzl", "int_flag")
 load(
     "//private:itest.bzl",
     _itest_service = "itest_service",
@@ -8,10 +9,30 @@ load(
     _service_test = "service_test",
 )
 
-def itest_service(name, tags = [], hygienic = True, **kwargs):
+def itest_service(name, tags = [], hygienic = True, named_ports = [], **kwargs):
+    if "port" in kwargs:
+        fail("Do not specify `port`, instead set it via the `%s` flag" % (name + "_port"))
+
+    int_flag(
+        name = name + "_port",
+        build_setting_default = 0,
+    )
+
+    named_ports_attr = {}
+    for named_port in named_ports:
+        named_port_label = name + "_" + named_port + "_port"
+        named_ports_attr[named_port_label] = named_port
+
+        int_flag(
+            name = named_port_label,
+            build_setting_default = 0,
+        )
+
     _itest_service(
         name = name,
         tags = tags + ["ibazel_notify_changes"],
+        port = name + "_port",
+        named_ports = named_ports_attr,
         **kwargs
     )
 
