@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math"
 	"net"
 	"os"
 	"os/exec"
@@ -44,6 +45,8 @@ var (
 var getAssignedPortRlocationPath string
 
 func main() {
+	start := time.Now()
+
 	log.SetFlags(log.Ltime | log.Lmicroseconds)
 
 	serviceSpecsPath, err := runfiles.Rlocation(os.Getenv("SVCINIT_SERVICE_SPECS_RLOCATION_PATH"))
@@ -200,12 +203,25 @@ func main() {
 			if !terseOutput {
 				log.Printf("Executing test: %s, %s\n", testPath, strings.Join(testArgs, " "))
 			}
+			testStartTime := time.Now()
+
 			testCmd = exec.CommandContext(ctx, testPath, testArgs...)
 			testCmd.Env = testEnv
+
+			// Adjust remaining timeout to account for service startup.
+			timeout := os.Getenv("TEST_TIMEOUT")
+			if timeout != "" {
+				timeoutVal, err := strconv.Atoi(timeout)
+				if err != nil {
+					fmt.Println(err)
+				} else {
+					timeoutVal -= int(math.Ceil(testStartTime.Sub(start).Seconds()))
+					testCmd.Env = append(testCmd.Env, "TEST_TIMEOUT=" + strconv.Itoa(timeoutVal))
+				}
+			}
+
 			testCmd.Stdout = os.Stdout
 			testCmd.Stderr = os.Stderr
-
-			testStartTime := time.Now()
 
 			if err := testCmd.Start(); err != nil {
 				panic(err)

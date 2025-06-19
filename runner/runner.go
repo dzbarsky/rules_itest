@@ -266,7 +266,8 @@ func initializeServiceCmd(ctx context.Context, instance *ServiceInstance) error 
 	// Even if a child process exits, Wait will block until the I/O pipes are closed.
 	// They may have been forwarded to an orphaned child, so we disable that behavior to unblock exit.
 	if s.Type == "service" {
-		cmd.WaitDelay = 1
+		// We need a bit of grace period to allow I/O pipes to close on our end.
+		cmd.WaitDelay = 50 * time.Millisecond
 	}
 
 	instance.cmd = cmd
