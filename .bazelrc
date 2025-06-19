@@ -1,5 +1,6 @@
 common --enable_bzlmod
-common --remote_download_toplevel # Helps remove network bottleneck if caching is enabled
+# Helps remove network bottleneck if caching is enabled
+common --remote_download_toplevel
 common --remote_timeout=3600
 
 common --test_output=errors
@@ -7,3 +8,5 @@ common --test_output=errors
 common --watchfs
 common --noexperimental_check_output_files
 common --nolegacy_external_runfiles
+
+common:enable-reload --@rules_itest//:enable_per_service_reload
