@@ -115,7 +115,7 @@ func main() {
 
 	// Make sure we grab the svcctl port before we assign test ports,
 	// otherwise we might steal an assigned port by accident.
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	listener, err := net.Listen("tcp", "127.0.0.1:50549")
 	must(err)
 
 	ports, err := assignPorts(unversionedSpecs)
@@ -216,7 +216,7 @@ func main() {
 					fmt.Println(err)
 				} else {
 					timeoutVal -= int(math.Ceil(testStartTime.Sub(start).Seconds()))
-					testCmd.Env = append(testCmd.Env, "TEST_TIMEOUT=" + strconv.Itoa(timeoutVal))
+					testCmd.Env = append(testCmd.Env, "TEST_TIMEOUT="+strconv.Itoa(timeoutVal))
 				}
 			}
 
