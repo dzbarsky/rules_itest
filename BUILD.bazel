@@ -11,6 +11,17 @@ cc_binary(
     visibility = ["//visibility:public"],
 )
 
+cc_library(
+    name = "socket_lib",
+    srcs = ["socket.c"],
+)
+
+cc_shared_library(
+    name = "socket",
+    deps = [":socket_lib"],
+    visibility = ["//visibility:public"],
+)
+
 bool_flag(
     name = "allow_configuring_tmpdir",
     build_setting_default = False,

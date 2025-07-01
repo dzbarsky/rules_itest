@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"os/exec"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
@@ -31,6 +32,12 @@ func main() {
 		}),
 	})
 
-	_, err = client.ListTables(context.Background(), &dynamodb.ListTablesInput{})
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+
+	_, err = client.ListTables(ctx, &dynamodb.ListTablesInput{})
+	if err != nil {
+		os.Exit(1)
+	}
 	must(err)
 }

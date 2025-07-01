@@ -27,10 +27,14 @@ java_binary(
         "@bazel_tools//src/conditions:darwin_x86_64": ["libsqlite4java-osx.dylib"],
         "@bazel_tools//src/conditions:linux_aarch64": ["libsqlite4java-linux-aarch64.so"],
         "@bazel_tools//src/conditions:linux_x86_64": ["libsqlite4java-linux-amd64.so"],
-    }),
+    }) + ["@rules_itest//:socket"],
     jvm_flags = [
         "-Djava.library.path=$$JAVA_RUNFILES/_main/dynamodb",
     ],
+    env = {
+        "DYLD_INSERT_LIBRARIES": "$(rlocationpath @rules_itest//:socket)",
+        "DYLD_PRINT_LIBRARIES": "1",
+    },
     main_class = "com.amazonaws.services.dynamodbv2.local.main.ServerRunner",
     runtime_deps = [
         "@maven//:com_amazonaws_DynamoDBLocal",
@@ -46,6 +50,7 @@ itest_service(
         "$${PORT}",
     ],
     autoassign_port = True,
+    so_reuseport_aware = True,
     exe = ":bin",
     health_check = ":health_check",
 )

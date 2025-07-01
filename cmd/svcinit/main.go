@@ -57,7 +57,7 @@ func main() {
 	must(err)
 	for _, kv := range runfilesEnv {
 		parts := strings.SplitN(kv, "=", 2)
-		os.Setenv(parts[0], parts[1])
+		must(os.Setenv(parts[0], parts[1]))
 	}
 
 	shouldHotReload := os.Getenv("IBAZEL_NOTIFY_CHANGES") == "y"
@@ -216,7 +216,7 @@ func main() {
 					fmt.Println(err)
 				} else {
 					timeoutVal -= int(math.Ceil(testStartTime.Sub(start).Seconds()))
-					testCmd.Env = append(testCmd.Env, "TEST_TIMEOUT=" + strconv.Itoa(timeoutVal))
+					testCmd.Env = append(testCmd.Env, "TEST_TIMEOUT="+strconv.Itoa(timeoutVal))
 				}
 			}
 
@@ -438,6 +438,9 @@ func augmentServiceSpecs(
 	tmpDir := os.Getenv("TMPDIR")
 	socketDir := os.Getenv("SOCKET_DIR")
 
+	socketLibPath, err := runfiles.Rlocation(os.Getenv("SOCKET_LIB_RLOCATION_PATH"))
+	must(err)
+
 	versionedServiceSpecs := make(map[string]svclib.VersionedServiceSpec, len(serviceSpecs))
 	for label, serviceSpec := range serviceSpecs {
 		s := svclib.VersionedServiceSpec{
@@ -492,6 +495,9 @@ func augmentServiceSpecs(
 			}
 		}
 		s.Env["SVCCTL_PORT"] = svcctlPort
+
+		s.Env["DYLD_INSERT_LIBRARIES"] = socketLibPath
+		s.Env["DYLD_PRINT_LIBRARIES"] = "1"
 
 		versionedServiceSpecs[label] = s
 	}

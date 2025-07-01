@@ -61,6 +61,7 @@ def _run_environment(ctx, service_specs_file):
 
         # Specs
         "SVCINIT_SERVICE_SPECS_RLOCATION_PATH": to_rlocation_path(ctx, service_specs_file),
+        "SOCKET_LIB_RLOCATION_PATH": to_rlocation_path(ctx, ctx.file._socket_lib),
     }
 
 def _services_runfiles(ctx, services_attr_name = "services"):
@@ -69,12 +70,18 @@ def _services_runfiles(ctx, services_attr_name = "services"):
         for service in getattr(ctx.attr, services_attr_name)
     ] + [
         ctx.attr._svcinit.default_runfiles,
+        ctx.attr._socket_lib.default_runfiles,
     ]
 
 _svcinit_attrs = {
     "_svcinit": attr.label(
         default = "//cmd/svcinit",
         executable = True,
+        cfg = "target",
+    ),
+    "_socket_lib": attr.label(
+        default = "//:socket",
+        allow_single_file = True,
         cfg = "target",
     ),
     "_enable_per_service_reload": attr.label(
