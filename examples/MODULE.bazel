@@ -7,6 +7,7 @@ local_path_override(
 bazel_dep(name = "aspect_bazel_lib", version = "2.4.2")
 bazel_dep(name = "bazel_skylib", version = "1.7.1")
 bazel_dep(name = "platforms", version = "0.0.10")
+bazel_dep(name = "rules_shell", version = "0.5.0")
 
 bazel_dep(name = "hermetic_cc_toolchain", version = "3.1.0")
 toolchains = use_extension("@hermetic_cc_toolchain//toolchain:ext.bzl", "toolchains")

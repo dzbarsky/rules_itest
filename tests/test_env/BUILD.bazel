@@ -1,5 +1,6 @@
 load("@rules_go//go:def.bzl", "go_test")
 load("@rules_itest//:itest.bzl", "itest_task", "service_test")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 
 env = {
     "ITEST_ENV_VAR": "ITEST_ENV_VAR_VALUE",

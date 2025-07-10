@@ -1,4 +1,6 @@
 load("@rules_itest//:itest.bzl", "itest_task", "service_test")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
 sh_binary(
     name = "write_to_file",
