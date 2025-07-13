@@ -9,4 +9,6 @@ common --watchfs
 common --noexperimental_check_output_files
 common --nolegacy_external_runfiles
 
+common --incompatible_autoload_externally=
+
 common:enable-reload --@rules_itest//:enable_per_service_reload
