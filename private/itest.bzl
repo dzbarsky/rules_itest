@@ -138,7 +138,6 @@ def _itest_binary_impl(ctx, extra_service_spec_kwargs, extra_exe_runfiles = []):
         for arg in ctx.attr.args
     ]
 
-
     if version_file:
         extra_service_spec_kwargs["version_file"] = to_rlocation_path(ctx, version_file)
 
@@ -193,6 +192,7 @@ def _itest_service_impl(ctx):
         "http_health_check_address": ctx.attr.http_health_check_address,
         "autoassign_port": ctx.attr.autoassign_port,
         "so_reuseport_aware": ctx.attr.so_reuseport_aware,
+        "deferred": ctx.attr.deferred,
         "named_ports": ctx.attr.named_ports,
         "hot_reloadable": ctx.attr.hot_reloadable,
         "expected_start_duration": ctx.attr.expected_start_duration,
@@ -245,6 +245,9 @@ _itest_service_attrs = _itest_binary_attrs | {
         aware of the port assignment mechanism.
 
         Must only be set when `autoassign_port` is enabled or `named_ports` are used.""",
+    ),
+    "deferred": attr.bool(
+        doc = """If set, the service manager will not be start on boot up. It can be started using the service manager's control API.""",
     ),
     "expected_start_duration": attr.string(
         default = "0s",

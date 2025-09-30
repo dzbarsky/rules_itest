@@ -216,7 +216,7 @@ func main() {
 					fmt.Println(err)
 				} else {
 					timeoutVal -= int(math.Ceil(testStartTime.Sub(start).Seconds()))
-					testCmd.Env = append(testCmd.Env, "TEST_TIMEOUT=" + strconv.Itoa(timeoutVal))
+					testCmd.Env = append(testCmd.Env, "TEST_TIMEOUT="+strconv.Itoa(timeoutVal))
 				}
 			}
 
@@ -554,7 +554,14 @@ func buildTestEnv(ports svclib.Ports) ([]string, error) {
 		panic(err)
 	}
 
-	replacements := make([]Replacement, 0, len(ports))
+	tmpDir := os.Getenv("TMPDIR")
+	socketDir := os.Getenv("SOCKET_DIR")
+
+	replacements := make([]Replacement, 0, 2+len(ports))
+	replacements = append(replacements,
+		Replacement{Old: "$${TMPDIR}", New: tmpDir},
+		Replacement{Old: "$${SOCKET_DIR}", New: socketDir},
+	)
 	for label, port := range ports {
 		replacements = append(replacements, Replacement{
 			Old: "$${" + label + "}",

@@ -21,6 +21,7 @@ type ServiceSpec struct {
 	Deps                   []string          `json:"deps"`
 	AutoassignPort         bool              `json:"autoassign_port"`
 	SoReuseportAware       bool              `json:"so_reuseport_aware"`
+	Deferred               bool              `json:"deferred"`
 	NamedPorts             []string          `json:"named_ports"`
 	HotReloadable          bool              `json:"hot_reloadable"`
 	PortAliases            map[string]string `json:"port_aliases"`
