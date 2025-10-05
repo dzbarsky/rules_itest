@@ -2,6 +2,7 @@ package runner
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log"
 	"net/http"
@@ -33,6 +34,8 @@ type ServiceInstance struct {
 	healthcheckAttempted bool
 	done                 bool
 }
+
+var forcedKillError = errors.New("process forcefully killed with SIGKILL, to circumvent this error, set shutdown_signal to SIGKILL")
 
 func (s *ServiceInstance) Start(ctx context.Context) error {
 	s.mu.Lock()
@@ -197,7 +200,7 @@ func (s *ServiceInstance) Error() error {
 	return s.runErr
 }
 
-func (s *ServiceInstance) Stop(sig syscall.Signal) error {
+func (s *ServiceInstance) Stop(sig *syscall.Signal) error {
 	func() {
 		s.mu.Lock()
 		defer s.mu.Unlock()
@@ -208,13 +211,74 @@ func (s *ServiceInstance) Stop(sig syscall.Signal) error {
 		return nil
 	}
 
-	err := killGroup(s.cmd, sig)
+	if s.cmd.ProcessState.ExitCode() == 0 {
+		return nil
+	}
+
+	var signal syscall.Signal
+	if sig == nil {
+		if s.ShutdownSignal == "SIGKILL" {
+			signal = syscall.SIGKILL
+		} else if s.ShutdownSignal == "SIGTERM" {
+			signal = syscall.SIGTERM
+		} else {
+			// Default to SIGKILL if unspecified or unrecognized. In case we add new values to itest.bzl but forget to add it here
+			signal = syscall.SIGKILL
+		}
+	} else {
+		signal = *sig
+	}
+
+	err := killGroup(s.cmd, signal)
 	if err != nil {
 		return err
 	}
 
-	for !s.isDone() {
-		time.Sleep(5 * time.Millisecond)
+	if signal == syscall.SIGKILL {
+		log.Printf("Sent SIGKILL to %s\n", s.Colorize(s.Label))
+		for !s.isDone() {
+			time.Sleep(5 * time.Millisecond)
+		}
+	} else {
+		log.Printf("Sent SIGTERM to %s\n", s.Colorize(s.Label))
+
+		shutdownTimeout, err := time.ParseDuration(s.VersionedServiceSpec.ShutdownTimeout)
+		if err != nil {
+			log.Printf("failed to parse health check timeout, falling back to no timeout: %v", err)
+			return err
+		}
+
+		log.Printf("Sent SIGTERM to %s, waiting for %s to stop gracefully\n", s.Colorize(s.Label), s.VersionedServiceSpec.ShutdownTimeout)
+
+		waitFor := time.After(shutdownTimeout)
+		for {
+			// Check if the process has exited
+			if s.isDone() {
+				break
+			}
+
+			select {
+			case <-waitFor:
+				log.Printf("%s did not exit within %s, sending SIGKILL. If you are trying to collect coverage, you will most likely miss stats, try increasing the shutdown timeout.\n", s.Colorize(s.Label), shutdownTimeout)
+
+				err := killGroup(s.cmd, syscall.SIGKILL)
+				if err != nil {
+					return err
+				}
+
+				for !s.isDone() {
+					time.Sleep(5 * time.Millisecond)
+				}
+
+				if s.ErrorOnForcefulShutdown {
+					return forcedKillError
+				}
+
+				return nil
+			default:
+				time.Sleep(5 * time.Millisecond)
+			}
+		}
 	}
 
 	return nil

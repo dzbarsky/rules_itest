@@ -138,7 +138,6 @@ def _itest_binary_impl(ctx, extra_service_spec_kwargs, extra_exe_runfiles = []):
         for arg in ctx.attr.args
     ]
 
-
     if version_file:
         extra_service_spec_kwargs["version_file"] = to_rlocation_path(ctx, version_file)
 
@@ -188,6 +187,8 @@ def _itest_service_impl(ctx):
     if ctx.attr.so_reuseport_aware and not (ctx.attr.autoassign_port or ctx.attr.named_ports):
         fail("SO_REUSEPORT awareness only makes sense when using port autoassignment")
 
+    shutdown_timeout = ctx.attr.shutdown_timeout or ctx.attr._default_shutdown_timeout[BuildSettingInfo].value
+
     extra_service_spec_kwargs = {
         "type": "service",
         "http_health_check_address": ctx.attr.http_health_check_address,
@@ -198,6 +199,9 @@ def _itest_service_impl(ctx):
         "expected_start_duration": ctx.attr.expected_start_duration,
         "health_check_interval": ctx.attr.health_check_interval,
         "health_check_timeout": ctx.attr.health_check_timeout,
+        "shutdown_signal": ctx.attr.shutdown_signal,
+        "shutdown_timeout": shutdown_timeout,
+        "error_on_forceful_shutdown": bool(ctx.attr.error_on_forceful_shutdown[BuildSettingInfo].value),
     }
     extra_exe_runfiles = []
 
@@ -277,6 +281,24 @@ _itest_service_attrs = _itest_binary_attrs | {
         doc = """If set, the service manager will send an HTTP request to this address to check if the service came up in a healthy state.
         This check will be retried until it returns a 200 HTTP code. When used in conjunction with autoassigned ports, `$${@@//label/for:service:port_name}` can be used in the address.
         Example: `http_health_check_address = "http://127.0.0.1:$${@@//label/for:service:port_name}",`""",
+    ),
+    "shutdown_signal": attr.string(
+        default = "SIGTERM",
+        doc = "The signal to send to the service when it needs to be shut down. Valid values are: SIGTERM and SIGKILL. SIGTERM is necessary to have proper coverage of services which needs to be gracefully terminated",
+        values = ["SIGTERM", "SIGKILL"],
+    ),
+    "shutdown_timeout": attr.string(
+        doc = "The duration to wait by default after sending the shutdown signal before forcefully killing the service. The syntax is based on common time duration with a number, followed by the time unit. For example, `200ms`, `1s`, `2m`, `3h`, `4d`. If not defined, the value of `_default_shutdown_timeout` will be used.",
+    ),
+    "_default_shutdown_timeout": attr.label(
+        default = "//:shutdown_timeout",
+        doc = "The duration to wait by default after sending the shutdown signal before forcefully killing the service. The syntax is based on common time duration with a number, followed by the time unit. For example, `200ms`, `1s`, `2m`, `3h`, `4d`.",
+    ),
+    "error_on_forceful_shutdown": attr.label(
+        default = "//:error_on_forceful_shutdown",
+        doc = """If set to True, the service manager will fail the service_test if the service had to be forcefully killed if the signal was not SIGKILL and after the shutdown timeout elapsed.
+
+        This needs to be False to have coverage of your services but don't want a them to be graceful at shutdown""",
     ),
 }
 

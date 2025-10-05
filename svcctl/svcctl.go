@@ -83,17 +83,21 @@ func handleStart(ctx context.Context, r *runner.Runner, serviceErrCh chan error,
 	w.WriteHeader(http.StatusOK)
 }
 
+func Ptr[T any](v T) *T {
+	return &v
+}
+
 func handleKill(ctx context.Context, r *runner.Runner, _ chan error, w http.ResponseWriter, req *http.Request) {
-	sig := syscall.SIGKILL
+	var sig *syscall.Signal // Use the default defined signal configured on the service.
 	params := req.URL.Query()
 	signal := params.Get("signal")
 	if signal != "" {
 		// Currently only SIGTERM and SIGKILL are supported.
 		switch signal {
 		case "SIGTERM":
-			sig = syscall.SIGTERM
+			sig = Ptr(syscall.SIGTERM)
 		case "SIGKILL":
-			sig = syscall.SIGKILL
+			sig = Ptr(syscall.SIGKILL)
 		default:
 			http.Error(w, "unsupported signal", http.StatusBadRequest)
 		}
