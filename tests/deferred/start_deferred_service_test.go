@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"testing"
+	"time"
 
 	"github.com/dzbarsky/rules_itest/tests/svcctl"
 )
@@ -41,6 +42,18 @@ func TestStartDeferredService(t *testing.T) {
 	err := client.StartService(context.Background(), "@@//deferred:deferred_itest_service", true)
 	if err != nil {
 		t.Errorf("Failed to start deferred service: %v", err)
+	}
+
+	for {
+		code, err := client.HealthCheck(context.Background(), "@@//deferred:deferred_itest_service")
+
+		if err != nil {
+			t.Errorf("Failed to health check deferred service: %v", err)
+		}
+		if code == http.StatusOK {
+			break
+		}
+		time.Sleep(200 * time.Millisecond)
 	}
 
 	log.Println("Getting port for deferred service...")

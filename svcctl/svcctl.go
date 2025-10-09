@@ -99,31 +99,17 @@ func handleStart(ctx context.Context, r *runner.Runner, serviceErrCh chan error,
 		return
 	}
 
-	errChan := make(chan error, 1)
-
 	// NOTE: it is important to wait here because we started the service without using `StartAll`,
 	// which waits for processes to prevent them from turning into zombies.
 	go func() {
-		if s.Deferred {
-			log.Printf("Waiting for %s to be healthy\n", colorize(s.VersionedServiceSpec))
-			errChan <- s.WaitUntilHealthy(ctx)
-		} else {
-			waitErr := s.Wait()
-			if waitErr != nil && !s.Killed() {
-				serviceErrCh <- fmt.Errorf(s.Colorize(s.Label) + " exited with error: " + err.Error())
-			}
-			errChan <- waitErr
+		waitErr := s.Wait()
+
+		if waitErr != nil && !s.Killed() {
+			serviceErrCh <- fmt.Errorf(s.Colorize(s.Label) + " exited with error: " + err.Error())
 		}
 	}()
 
-	chanErr := <-errChan
-	if chanErr == nil {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("0"))
-		return
-	}
-
-	http.Error(w, err.Error(), http.StatusInternalServerError)
+	w.WriteHeader(http.StatusOK)
 }
 
 func handleKill(ctx context.Context, r *runner.Runner, _ chan error, w http.ResponseWriter, req *http.Request) {
