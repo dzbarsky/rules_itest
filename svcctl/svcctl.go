@@ -103,7 +103,6 @@ func handleStart(ctx context.Context, r *runner.Runner, serviceErrCh chan error,
 	// which waits for processes to prevent them from turning into zombies.
 	go func() {
 		waitErr := s.Wait()
-
 		if waitErr != nil && !s.Killed() {
 			serviceErrCh <- fmt.Errorf(s.Colorize(s.Label) + " exited with error: " + err.Error())
 		}
@@ -149,9 +148,6 @@ func handleWait(ctx context.Context, r *runner.Runner, _ chan error, w http.Resp
 	}
 
 	params := req.URL.Query()
-
-	log.Printf("All params : %v\n", params)
-
 	timeout := params.Get("timeout")
 	var t time.Duration
 	if timeout != "" {
