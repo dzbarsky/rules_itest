@@ -126,7 +126,7 @@ def _itest_binary_impl(ctx, extra_service_spec_kwargs, extra_exe_runfiles = []):
     exe_runfiles = [ctx.attr.exe.default_runfiles] + extra_exe_runfiles
 
     version_file_deps = ctx.files.data + ctx.files.exe
-    version_file_deps_trans = [runfiles.files for runfiles in exe_runfiles]
+    version_file_deps_trans = [runfiles.files for runfiles in exe_runfiles] + [data[DefaultInfo].default_runfiles.files for data in ctx.attr.data]
 
     version_file = _create_version_file(
         ctx,
