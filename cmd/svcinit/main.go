@@ -271,6 +271,21 @@ func main() {
 			testCancel()
 
 			// TODO(zbarsky): what is the right behavior here when services are crashing in ibazel mode?
+
+			// This is a brittle way of draining a channel in a nonblocking way,
+			// consider instead signalling cancellation of the services with a
+			// context, letting them close the channel, and using a waitgroup to
+			// wait for them to exit.
+		Drain:
+			for {
+				select {
+				case <-servicesErrCh:
+					// nothing
+				default:
+					break Drain
+				}
+			}
+
 			criticalPath, err = r.UpdateSpecsAndRestart(serviceSpecs, servicesErrCh, []byte(ibazelCmd))
 			must(err)
 
