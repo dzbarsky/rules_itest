@@ -331,6 +331,10 @@ func main() {
 		buf.Reset()
 		err = reportWriter.Flush()
 		must(err)
+
+		if isOneShot {
+			break
+		}
 	}
 }
 
