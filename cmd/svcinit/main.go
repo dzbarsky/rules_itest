@@ -190,6 +190,7 @@ func main() {
 		must(err)
 
 		var testCmd *exec.Cmd
+		testCtx, testCancel := context.WithCancel(ctx)
 		testErrCh := make(chan error, 1)
 		if testLabel != "" {
 			testArgs := os.Args[1:]
@@ -205,7 +206,7 @@ func main() {
 			}
 			testStartTime := time.Now()
 
-			testCmd = exec.CommandContext(ctx, testPath, testArgs...)
+			testCmd = exec.CommandContext(testCtx, testPath, testArgs...)
 			testCmd.Env = testEnv
 
 			// Adjust remaining timeout to account for service startup.
@@ -216,7 +217,7 @@ func main() {
 					fmt.Println(err)
 				} else {
 					timeoutVal -= int(math.Ceil(testStartTime.Sub(start).Seconds()))
-					testCmd.Env = append(testCmd.Env, "TEST_TIMEOUT=" + strconv.Itoa(timeoutVal))
+					testCmd.Env = append(testCmd.Env, "TEST_TIMEOUT="+strconv.Itoa(timeoutVal))
 				}
 			}
 
@@ -266,6 +267,8 @@ func main() {
 
 			serviceSpecs, err := augmentServiceSpecs(unversionedSpecs, ports, svcctlPortStr)
 			must(err)
+
+			testCancel()
 
 			// TODO(zbarsky): what is the right behavior here when services are crashing in ibazel mode?
 			criticalPath, err = r.UpdateSpecsAndRestart(serviceSpecs, servicesErrCh, []byte(ibazelCmd))
