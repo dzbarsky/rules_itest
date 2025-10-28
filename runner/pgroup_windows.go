@@ -7,6 +7,15 @@ import (
 	"syscall"
 )
 
+func errnoMeansProcessGone(errno syscall.Errno) bool {
+	switch errno {
+	case syscall.EINVAL:
+		return true
+	default:
+		return false
+	}
+}
+
 func setPgid(cmd *exec.Cmd) {
 	panic("Pgid not implemented on windows!")
 }

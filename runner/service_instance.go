@@ -221,7 +221,7 @@ func isGone(err error) bool {
 	}
 
 	var errno syscall.Errno
-	return errors.As(err, &errno) && errno == syscall.ESRCH
+	return errors.As(err, &errno) && errnoMeansProcessGone(errno)
 }
 
 func (s *ServiceInstance) StopWithSignal(signal syscall.Signal) error {
