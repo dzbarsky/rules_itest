@@ -269,7 +269,7 @@ func (s *ServiceInstance) StopWithSignal(signal syscall.Signal) error {
 
 			select {
 			case <-waitFor:
-				log.Printf("%s did not exit within %s, sending SIGKILL. If you are trying to collect coverage, you will most likely miss stats, try increasing the shutdown timeout.\n", s.Colorize(s.Label), shutdownTimeout)
+				log.Printf("%s did not exit within %s, sending SIGKILL. If you are trying to collect coverage, you will most likely miss stats, try increasing the default shutdown timeout flag (--@rules_itest//:shutdown_timeout) or the service `shutdown_timeout` attribute.\n", s.Colorize(s.Label), shutdownTimeout)
 
 				err := killGroup(s.cmd, syscall.SIGKILL)
 				if err != nil {
