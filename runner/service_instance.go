@@ -215,22 +215,31 @@ func (s *ServiceInstance) Stop() error {
 	return s.StopWithSignal(signal)
 }
 
+func isGone(err error) bool {
+	if errors.Is(err, os.ErrProcessDone) {
+		return true
+	}
+
+	var errno syscall.Errno
+	return errors.As(err, &errno) && errno == syscall.ESRCH
+}
+
 func (s *ServiceInstance) StopWithSignal(signal syscall.Signal) error {
+	if s.cmd.Process == nil {
+		return nil
+	}
+
+	err := killGroup(s.cmd, signal)
+	if isGone(err) {
+		return nil
+	}
+
 	func() {
 		s.mu.Lock()
 		defer s.mu.Unlock()
 		s.killed = true
 	}()
 
-	if s.cmd.Process == nil {
-		return nil
-	}
-
-	if s.cmd.ProcessState.ExitCode() == 0 {
-		return nil
-	}
-
-	err := killGroup(s.cmd, signal)
 	if err != nil {
 		return err
 	}
