@@ -201,7 +201,7 @@ def _itest_service_impl(ctx):
         "health_check_timeout": ctx.attr.health_check_timeout,
         "shutdown_signal": ctx.attr.shutdown_signal,
         "shutdown_timeout": shutdown_timeout,
-        "error_on_forceful_shutdown": bool(ctx.attr.error_on_forceful_shutdown[BuildSettingInfo].value),
+        "enforce_graceful_shutdown": bool(ctx.attr.enforce_graceful_shutdown[BuildSettingInfo].value),
     }
     extra_exe_runfiles = []
 
@@ -294,8 +294,8 @@ _itest_service_attrs = _itest_binary_attrs | {
         default = "//:shutdown_timeout",
         doc = "The duration to wait by default after sending the shutdown signal before forcefully killing the service. The syntax is based on common time duration with a number, followed by the time unit. For example, `200ms`, `1s`, `2m`, `3h`, `4d`.",
     ),
-    "error_on_forceful_shutdown": attr.label(
-        default = "//:error_on_forceful_shutdown",
+    "enforce_graceful_shutdown": attr.label(
+        default = "//:enforce_graceful_shutdown",
         doc = """If set to True, the service manager will fail the service_test if the service had to be forcefully killed if the signal was not SIGKILL and after the shutdown timeout elapsed.
 
         This needs to be False to have coverage of your services but don't want a them to be graceful at shutdown""",

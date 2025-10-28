@@ -99,11 +99,11 @@ func (r *Runner) StartAll(serviceErrCh chan error) ([]topological.Task, error) {
 
 func (r *Runner) StopAll() (map[string]*os.ProcessState, error) {
 	tasks := allTasks(r.serviceInstances, func(ctx context.Context, service *ServiceInstance) error {
-		if service.Type == "group" || service.Type == "task" {
+		if service.Type == "group" {
 			return nil
 		}
 		log.Printf("Stopping %s\n", colorize(service.VersionedServiceSpec))
-		return service.Stop(nil)
+		return service.Stop()
 	})
 	stopper := topological.NewReversedRunner(tasks)
 	err := stopper.Run(r.ctx)
@@ -183,10 +183,10 @@ func (r *Runner) UpdateSpecs(serviceSpecs ServiceSpecs, ibazelCmd []byte) error 
 
 	for _, label := range updateActions.toStopLabels {
 		serviceInstance := r.serviceInstances[label]
-		if serviceInstance.Type == "group" || serviceInstance.Type == "task" {
+		if serviceInstance.Type == "group" {
 			continue
 		}
-		serviceInstance.Stop(nil)
+		serviceInstance.Stop()
 		delete(r.serviceInstances, label)
 	}
 

@@ -4,7 +4,7 @@ load("@rules_itest//:itest.bzl", "itest_service", "service_test")
 load("//:must_fail.bzl", "must_fail")
 
 bool_flag(
-    name = "error_on_forceful_shutdown",
+    name = "enforce_graceful_shutdown",
     build_setting_default = True,
     visibility = ["//visibility:public"],
 )
@@ -22,7 +22,7 @@ itest_service(
     env = {
         "SHUTDOWN_WAIT_SECONDS": "1000",
     },
-    error_on_forceful_shutdown = ":error_on_forceful_shutdown",
+    enforce_graceful_shutdown = ":enforce_graceful_shutdown",
     exe = ":server",
     http_health_check_address = "http://localhost:$${PORT}",
     tags = ["manual"],
@@ -47,7 +47,7 @@ itest_service(
     env = {
         "SHUTDOWN_WAIT_SECONDS": "1",
     },
-    error_on_forceful_shutdown = ":error_on_forceful_shutdown",
+    enforce_graceful_shutdown = ":enforce_graceful_shutdown",
     exe = ":server",
     http_health_check_address = "http://localhost:$${PORT}",
     shutdown_timeout = "10s",

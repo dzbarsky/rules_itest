@@ -200,7 +200,22 @@ func (s *ServiceInstance) Error() error {
 	return s.runErr
 }
 
-func (s *ServiceInstance) Stop(sig *syscall.Signal) error {
+func (s *ServiceInstance) Stop() error {
+	var signal syscall.Signal
+	switch s.ShutdownSignal {
+	case "SIGKILL":
+		signal = syscall.SIGKILL
+	case "SIGTERM":
+		signal = syscall.SIGTERM
+	default:
+		// Default to SIGKILL if unspecified or unrecognized. In case we add new values to itest.bzl but forget to add it here
+		signal = syscall.SIGKILL
+	}
+
+	return s.StopWithSignal(signal)
+}
+
+func (s *ServiceInstance) StopWithSignal(signal syscall.Signal) error {
 	func() {
 		s.mu.Lock()
 		defer s.mu.Unlock()
@@ -213,20 +228,6 @@ func (s *ServiceInstance) Stop(sig *syscall.Signal) error {
 
 	if s.cmd.ProcessState.ExitCode() == 0 {
 		return nil
-	}
-
-	var signal syscall.Signal
-	if sig == nil {
-		if s.ShutdownSignal == "SIGKILL" {
-			signal = syscall.SIGKILL
-		} else if s.ShutdownSignal == "SIGTERM" {
-			signal = syscall.SIGTERM
-		} else {
-			// Default to SIGKILL if unspecified or unrecognized. In case we add new values to itest.bzl but forget to add it here
-			signal = syscall.SIGKILL
-		}
-	} else {
-		signal = *sig
 	}
 
 	err := killGroup(s.cmd, signal)
@@ -270,7 +271,7 @@ func (s *ServiceInstance) Stop(sig *syscall.Signal) error {
 					time.Sleep(5 * time.Millisecond)
 				}
 
-				if s.ErrorOnForcefulShutdown {
+				if s.EnforceForcefulShutdown {
 					return forcedKillError
 				}
 

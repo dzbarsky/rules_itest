@@ -1,8 +1,6 @@
 package svclib
 
-import (
-	"rules_itest/logger"
-)
+import "rules_itest/logger"
 
 // Created by Starlark
 type ServiceSpec struct {
@@ -28,7 +26,7 @@ type ServiceSpec struct {
 	PortAliases             map[string]string `json:"port_aliases"`
 	ShutdownSignal          string            `json:"shutdown_signal"`
 	ShutdownTimeout         string            `json:"shutdown_timeout"`
-	ErrorOnForcefulShutdown bool              `json:"error_on_forceful_shutdown"`
+	EnforceForcefulShutdown bool              `json:"enforce_graceful_shutdown"`
 }
 
 // Our internal representation.

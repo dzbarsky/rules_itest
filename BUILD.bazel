@@ -51,7 +51,7 @@ string_flag(
 )
 
 bool_flag(
-    name = "error_on_forceful_shutdown",
+    name = "enforce_graceful_shutdown",
     build_setting_default = False,
     visibility = ["//visibility:public"],
 )

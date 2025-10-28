@@ -22,3 +22,4 @@ function shutdownHandler(signal) {
 }
 
 process.on('SIGTERM', () => shutdownHandler('SIGTERM'));
+
