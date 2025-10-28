@@ -81,7 +81,7 @@ func (r *Runner) StartAll(serviceErrCh chan error) ([]topological.Task, error) {
 	err := starter.Run(r.ctx)
 
 	for _, service := range r.serviceInstances {
-		if service.Type != "service" {
+		if service.Type == "group" {
 			continue
 		}
 
