@@ -1,4 +1,4 @@
-load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
+load("@bazel_skylib//rules:common_settings.bzl", "bool_flag", "string_flag")
 
 alias(
     name = "gazelle",
@@ -8,6 +8,12 @@ alias(
 cc_binary(
     name = "exit0",
     srcs = ["exit0.c"],
+    visibility = ["//visibility:public"],
+)
+
+cc_test(
+    name = "exit0_test",
+    srcs = [":exit0.c"],
     visibility = ["//visibility:public"],
 )
 
@@ -33,6 +39,19 @@ bool_flag(
 # This will match the behavior of `bazel run` on a service or service_group.
 bool_flag(
     name = "keep_services_up",
+    build_setting_default = False,
+    visibility = ["//visibility:public"],
+)
+
+# Default value for shutdown_timeout in itest_service rules.
+string_flag(
+    name = "shutdown_timeout",
+    build_setting_default = "1s",
+    visibility = ["//visibility:public"],
+)
+
+bool_flag(
+    name = "enforce_graceful_shutdown",
     build_setting_default = False,
     visibility = ["//visibility:public"],
 )

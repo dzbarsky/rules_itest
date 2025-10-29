@@ -190,6 +190,7 @@ func main() {
 		must(err)
 
 		var testCmd *exec.Cmd
+		testCtx, testCancel := context.WithCancel(ctx)
 		testErrCh := make(chan error, 1)
 		if testLabel != "" {
 			testArgs := os.Args[1:]
@@ -205,7 +206,7 @@ func main() {
 			}
 			testStartTime := time.Now()
 
-			testCmd = exec.CommandContext(ctx, testPath, testArgs...)
+			testCmd = exec.CommandContext(testCtx, testPath, testArgs...)
 			testCmd.Env = testEnv
 
 			// Adjust remaining timeout to account for service startup.
@@ -237,7 +238,59 @@ func main() {
 
 		fmt.Println()
 
+		if shouldHotReload && !enablePerServiceReload {
+			fmt.Println()
+			fmt.Println("###########################################################################################")
+			fmt.Println("  Detected that you are running under ibazel, but do not have per-service-reload enabled.")
+			fmt.Println("  In this configuration, services will not be restarted when their code changes.")
+			fmt.Println("  If this was unintentional, you can retry with per-service-reload enabled:")
+			fmt.Println("")
+			fmt.Printf("  `bazel run --@rules_itest//:enable_per_service_reload %s`\n", testLabel)
+			fmt.Println("###########################################################################################")
+			fmt.Println()
+			fmt.Println()
+		}
+
 		select {
+		case <-ctx.Done():
+			log.Println("Shutting down services.")
+			_, err := r.StopAll()
+			must(err)
+			log.Println("Cleaning up.")
+			return
+		case ibazelCmd := <-interactiveCh:
+			log.Println(ibazelCmd)
+
+			// Restart any services as needed.
+			unversionedSpecs, err := readServiceSpecs(serviceSpecsPath)
+			must(err)
+
+			serviceSpecs, err := augmentServiceSpecs(unversionedSpecs, ports, svcctlPortStr)
+			must(err)
+
+			testCancel()
+
+			// TODO(zbarsky): what is the right behavior here when services are crashing in ibazel mode?
+
+			// This is a brittle way of draining a channel in a nonblocking way,
+			// consider instead signalling cancellation of the services with a
+			// context, letting them close the channel, and using a waitgroup to
+			// wait for them to exit.
+		Drain:
+			for {
+				select {
+				case <-servicesErrCh:
+					// nothing
+				default:
+					break Drain
+				}
+			}
+
+			criticalPath, err = r.UpdateSpecsAndRestart(serviceSpecs, servicesErrCh, []byte(ibazelCmd))
+			must(err)
+
+			continue
+
 		case testErr := <-testErrCh:
 			if testErr != nil {
 				log.Printf("Encountered error during test run: %s\n", testErr)
@@ -281,44 +334,6 @@ func main() {
 
 		if isOneShot {
 			break
-		}
-
-		if shouldHotReload && !enablePerServiceReload {
-			fmt.Println()
-			fmt.Println()
-			fmt.Println("###########################################################################################")
-			fmt.Println("  Detected that you are running under ibazel, but do not have per-service-reload enabled.")
-			fmt.Println("  In this configuration, services will not be restarted when their code changes.")
-			fmt.Println("  If this was unintentional, you can retry with per-service-reload enabled:")
-			fmt.Println("")
-			fmt.Printf("  `bazel run --@rules_itest//:enable_per_service_reload %s`\n", testLabel)
-			fmt.Println("###########################################################################################")
-			fmt.Println()
-			fmt.Println()
-		}
-
-		select {
-		case <-ctx.Done():
-			log.Println("Shutting down services.")
-			_, err := r.StopAll()
-			must(err)
-			log.Println("Cleaning up.")
-			return
-		case ibazelCmd := <-interactiveCh:
-			log.Println(ibazelCmd)
-
-			// Restart any services as needed.
-			unversionedSpecs, err := readServiceSpecs(serviceSpecsPath)
-			must(err)
-
-			serviceSpecs, err := augmentServiceSpecs(unversionedSpecs, ports, svcctlPortStr)
-			must(err)
-
-			// TODO(zbarsky): what is the right behavior here when services are crashing in ibazel mode?
-			for range servicesErrCh {
-			} // Drain the channel
-			criticalPath, err = r.UpdateSpecsAndRestart(serviceSpecs, servicesErrCh, []byte(ibazelCmd))
-			must(err)
 		}
 	}
 }

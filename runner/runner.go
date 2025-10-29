@@ -9,7 +9,6 @@ import (
 	"reflect"
 	"runtime"
 	"sync"
-	"syscall"
 	"time"
 
 	"rules_itest/logger"
@@ -87,7 +86,7 @@ func (r *Runner) StartAll(serviceErrCh chan error) ([]topological.Task, error) {
 	err := starter.Run(r.ctx)
 
 	for _, service := range r.serviceInstances {
-		if service.Type != "service" {
+		if service.Type == "group" {
 			continue
 		}
 
@@ -113,8 +112,7 @@ func (r *Runner) StopAll() (map[string]*os.ProcessState, error) {
 			return nil
 		}
 		log.Printf("Stopping %s\n", colorize(service.VersionedServiceSpec))
-		service.Stop(syscall.SIGKILL)
-		return nil
+		return service.Stop()
 	})
 	stopper := topological.NewReversedRunner(tasks)
 	err := stopper.Run(r.ctx)
@@ -197,7 +195,7 @@ func (r *Runner) UpdateSpecs(serviceSpecs ServiceSpecs, ibazelCmd []byte) error 
 		if serviceInstance.Type == "group" {
 			continue
 		}
-		serviceInstance.Stop(syscall.SIGKILL)
+		serviceInstance.Stop()
 		delete(r.serviceInstances, label)
 	}
 

@@ -112,20 +112,8 @@ func handleStart(ctx context.Context, r *runner.Runner, serviceErrCh chan error,
 }
 
 func handleKill(ctx context.Context, r *runner.Runner, _ chan error, w http.ResponseWriter, req *http.Request) {
-	sig := syscall.SIGKILL
 	params := req.URL.Query()
 	signal := params.Get("signal")
-	if signal != "" {
-		// Currently only SIGTERM and SIGKILL are supported.
-		switch signal {
-		case "SIGTERM":
-			sig = syscall.SIGTERM
-		case "SIGKILL":
-			sig = syscall.SIGKILL
-		default:
-			http.Error(w, "unsupported signal", http.StatusBadRequest)
-		}
-	}
 
 	s, status, err := getService(r, req)
 	if err != nil {
@@ -133,7 +121,19 @@ func handleKill(ctx context.Context, r *runner.Runner, _ chan error, w http.Resp
 		return
 	}
 
-	err = s.Stop(sig)
+	// Currently only SIGTERM and SIGKILL are supported.
+	switch signal {
+	case "":
+		err = s.Stop()
+	case "SIGTERM":
+		err = s.StopWithSignal(syscall.SIGTERM)
+	case "SIGKILL":
+		err = s.StopWithSignal(syscall.SIGKILL)
+	default:
+		http.Error(w, "unsupported signal", http.StatusBadRequest)
+		return
+	}
+
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
