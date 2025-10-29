@@ -2,6 +2,8 @@ package runner
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -197,24 +199,98 @@ func (s *ServiceInstance) Error() error {
 	return s.runErr
 }
 
-func (s *ServiceInstance) Stop(sig syscall.Signal) error {
+func (s *ServiceInstance) Stop() error {
+	var signal syscall.Signal
+	switch s.ShutdownSignal {
+	case "SIGKILL":
+		signal = syscall.SIGKILL
+	case "SIGTERM":
+		signal = syscall.SIGTERM
+	default:
+		// Default to SIGKILL if unspecified or unrecognized. In case we add new values to itest.bzl but forget to add it here
+		signal = syscall.SIGKILL
+	}
+
+	return s.StopWithSignal(signal)
+}
+
+func isGone(err error) bool {
+	if errors.Is(err, os.ErrProcessDone) {
+		return true
+	}
+
+	var errno syscall.Errno
+	return errors.As(err, &errno) && errnoMeansProcessGone(errno)
+}
+
+func (s *ServiceInstance) StopWithSignal(signal syscall.Signal) error {
+	if s.cmd.Process == nil {
+		return nil
+	}
+
+	err := killGroup(s.cmd, signal)
+	if isGone(err) {
+		return nil
+	}
+
 	func() {
 		s.mu.Lock()
 		defer s.mu.Unlock()
 		s.killed = true
 	}()
 
-	if s.cmd.Process == nil {
-		return nil
-	}
-
-	err := killGroup(s.cmd, sig)
 	if err != nil {
 		return err
 	}
 
-	for !s.isDone() {
-		time.Sleep(5 * time.Millisecond)
+	if signal == syscall.SIGKILL {
+		log.Printf("Sent SIGKILL to %s\n", s.Colorize(s.Label))
+		for !s.isDone() {
+			time.Sleep(5 * time.Millisecond)
+		}
+	} else {
+		log.Printf("Sent SIGTERM to %s\n", s.Colorize(s.Label))
+
+		shutdownTimeout, err := time.ParseDuration(s.VersionedServiceSpec.ShutdownTimeout)
+		if err != nil {
+			log.Printf("failed to parse health check timeout, falling back to no timeout: %v", err)
+			return err
+		}
+
+		log.Printf("Sent SIGTERM to %s, waiting for %s to stop gracefully\n", s.Colorize(s.Label), s.VersionedServiceSpec.ShutdownTimeout)
+
+		waitFor := time.After(shutdownTimeout)
+		for {
+			// Check if the process has exited
+			if s.isDone() {
+				break
+			}
+
+			select {
+			case <-waitFor:
+				log.Printf("WARNING: %s did not exit within %s, sending SIGKILL. If you are trying to collect coverage, you will most likely miss stats, try increasing the default shutdown timeout flag (--@rules_itest//:shutdown_timeout) or the service `shutdown_timeout` attribute.\n", s.Colorize(s.Label), shutdownTimeout)
+
+				err := killGroup(s.cmd, syscall.SIGKILL)
+				if err != nil {
+					if isGone(err) {
+						err = nil
+					}
+					return err
+				}
+
+				for !s.isDone() {
+					time.Sleep(5 * time.Millisecond)
+				}
+
+				if s.EnforceForcefulShutdown {
+					return fmt.Errorf("%s did not handle SIGTERM within it's shutdown timeout. Consider raising it's `shutdown_timeout` attribute or set `shutdown_signal` to SIGKILL if graceful shutdown is not needed", s.Label)
+				}
+
+				return nil
+			default:
+				time.Sleep(5 * time.Millisecond)
+			}
+		}
 	}
 
 	return nil
