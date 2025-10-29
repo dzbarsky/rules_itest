@@ -27,6 +27,7 @@ type ServiceSpec struct {
 	ShutdownSignal          string            `json:"shutdown_signal"`
 	ShutdownTimeout         string            `json:"shutdown_timeout"`
 	EnforceForcefulShutdown bool              `json:"enforce_graceful_shutdown"`
+	Deferred                bool              `json:"deferred"`
 }
 
 // Our internal representation.

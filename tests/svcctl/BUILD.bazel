@@ -1,4 +1,4 @@
-load("@rules_go//go:def.bzl", "go_test")
+load("@rules_go//go:def.bzl", "go_library", "go_test")
 load("@rules_itest//:itest.bzl", "service_test")
 
 go_test(
@@ -13,4 +13,11 @@ service_test(
         "//:services",
     ],
     test = "_svcctl_test",
+)
+
+go_library(
+    name = "svcctl",
+    srcs = ["client.go"],
+    importpath = "github.com/dzbarsky/rules_itest/tests/svcctl",
+    visibility = ["//visibility:public"],
 )
