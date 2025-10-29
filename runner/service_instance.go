@@ -3,6 +3,7 @@ package runner
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -34,8 +35,6 @@ type ServiceInstance struct {
 	healthcheckAttempted bool
 	done                 bool
 }
-
-var forcedKillError = errors.New("process forcefully killed with SIGKILL, to circumvent this error, set shutdown_signal to SIGKILL")
 
 func (s *ServiceInstance) Start(ctx context.Context) error {
 	s.mu.Lock()
@@ -269,10 +268,13 @@ func (s *ServiceInstance) StopWithSignal(signal syscall.Signal) error {
 
 			select {
 			case <-waitFor:
-				log.Printf("%s did not exit within %s, sending SIGKILL. If you are trying to collect coverage, you will most likely miss stats, try increasing the default shutdown timeout flag (--@rules_itest//:shutdown_timeout) or the service `shutdown_timeout` attribute.\n", s.Colorize(s.Label), shutdownTimeout)
+				log.Printf("WARNING: %s did not exit within %s, sending SIGKILL. If you are trying to collect coverage, you will most likely miss stats, try increasing the default shutdown timeout flag (--@rules_itest//:shutdown_timeout) or the service `shutdown_timeout` attribute.\n", s.Colorize(s.Label), shutdownTimeout)
 
 				err := killGroup(s.cmd, syscall.SIGKILL)
 				if err != nil {
+					if isGone(err) {
+						err = nil
+					}
 					return err
 				}
 
@@ -281,7 +283,7 @@ func (s *ServiceInstance) StopWithSignal(signal syscall.Signal) error {
 				}
 
 				if s.EnforceForcefulShutdown {
-					return forcedKillError
+					return fmt.Errorf("%s did not handle SIGTERM within it's shutdown timeout. Consider raising it's `shutdown_timeout` attribute or set `shutdown_signal` to SIGKILL if graceful shutdown is not needed", s.Label)
 				}
 
 				return nil
