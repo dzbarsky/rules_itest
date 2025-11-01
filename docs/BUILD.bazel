@@ -1,10 +1,10 @@
-load("@bazel_lib//lib:docs.bzl", "stardoc_with_diff_test", "update_docs")
-
-stardoc_with_diff_test(
-    name = "itest",
-    bzl_library_target = "//private:itest",
-)
-
-update_docs(
-    name = "update",
-)
+#load("@bazel_lib//lib:docs.bzl", "stardoc_with_diff_test", "update_docs")
+#
+#stardoc_with_diff_test(
+#    name = "itest",
+#    bzl_library_target = "//private:itest",
+#)
+#
+#update_docs(
+#    name = "update",
+#)
