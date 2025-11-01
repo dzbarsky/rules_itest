@@ -16,7 +16,7 @@ go_test(
     env = env,
     tags = ["manual"],
     deps = [
-        "@rules_go//go/runfiles:go_default_library",
+        "@rules_go//go/runfiles",
     ],
 )
 

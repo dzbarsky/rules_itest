@@ -10,7 +10,7 @@ go_library(
     importpath = "rules_itest/tests/go_service",
     visibility = ["//visibility:private"],
     deps = [
-        "@rules_go//go/runfiles:go_default_library",
+        "@rules_go//go/runfiles",
     ] + select({
         "@rules_go//go/platform:aix": [
             "@org_golang_x_sys//unix",

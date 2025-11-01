@@ -1,4 +1,4 @@
-load("@aspect_bazel_lib//lib:copy_file.bzl", "copy_file")
+load("@bazel_lib//lib:copy_file.bzl", "copy_file")
 # See https://github.com/ganadist/sqlite4java/blob/master/ant/how-to-cross-compile_sqlite4java_r01.txt
 
 # JNI headers example https://github.com/bazelbuild/bazel/blob/master/src/main/native/BUILD
