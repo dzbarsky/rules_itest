@@ -41,6 +41,7 @@ load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 _ServiceGroupInfo = provider(
     doc = "Info about a service group",
     fields = {
+        "deferred": "Flag if this service should be deferred or not",
         "services": "Dict of services/tasks",
     },
 )
@@ -123,6 +124,11 @@ def _compute_env(ctx, underlying_target):
     return env
 
 def _itest_binary_impl(ctx, extra_service_spec_kwargs, extra_exe_runfiles = []):
+    if not ctx.attr.deferred:
+        for dep in ctx.attr.deps:
+            if dep[_ServiceGroupInfo].deferred:
+                fail("Non-deferred itest_service cannot depend on deferred itest_service: %s depends on %s" % (ctx.label, dep.label))
+
     exe_runfiles = [ctx.attr.exe.default_runfiles] + extra_exe_runfiles
 
     version_file_deps = ctx.files.data + ctx.files.exe
@@ -165,7 +171,7 @@ def _itest_binary_impl(ctx, extra_service_spec_kwargs, extra_exe_runfiles = []):
     return [
         RunEnvironmentInfo(environment = _run_environment(ctx, service_specs_file)),
         DefaultInfo(runfiles = runfiles),
-        _ServiceGroupInfo(services = services),
+        _ServiceGroupInfo(services = services, deferred = ctx.attr.deferred),
     ]
 
 def _validate_duration(name, s):
