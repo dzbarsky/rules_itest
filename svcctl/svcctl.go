@@ -72,7 +72,7 @@ func handleStart(ctx context.Context, r *runner.Runner, serviceErrCh chan error,
 	}
 
 	if s.Deferred {
-		// make sure all the deferred dependencies are started
+		// make sure all the non-deferred dependencies are started
 		for _, dep := range s.Deps {
 			depService := r.GetInstance(dep)
 			if depService == nil {
