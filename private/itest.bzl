@@ -124,7 +124,7 @@ def _compute_env(ctx, underlying_target):
     return env
 
 def _itest_binary_impl(ctx, extra_service_spec_kwargs, extra_exe_runfiles = []):
-    if not ctx.attr.deferred:
+    if hasattr(ctx.attr, "deferred") and not ctx.attr.deferred:
         for dep in ctx.attr.deps:
             if dep[_ServiceGroupInfo].deferred:
                 fail("Non-deferred itest_service cannot depend on deferred itest_service: %s depends on %s" % (ctx.label, dep.label))
@@ -171,7 +171,7 @@ def _itest_binary_impl(ctx, extra_service_spec_kwargs, extra_exe_runfiles = []):
     return [
         RunEnvironmentInfo(environment = _run_environment(ctx, service_specs_file)),
         DefaultInfo(runfiles = runfiles),
-        _ServiceGroupInfo(services = services, deferred = ctx.attr.deferred),
+        _ServiceGroupInfo(services = services, deferred = getattr(ctx.attr, "deferred", False)),
     ]
 
 def _validate_duration(name, s):
@@ -355,7 +355,7 @@ def _itest_service_group_impl(ctx):
     return [
         RunEnvironmentInfo(environment = _run_environment(ctx, service_specs_file)),
         DefaultInfo(runfiles = runfiles),
-        _ServiceGroupInfo(services = services),
+        _ServiceGroupInfo(services = services, deferred = False),
     ]
 
 _itest_service_group_attrs = _svcinit_attrs | {
