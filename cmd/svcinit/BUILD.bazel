@@ -14,7 +14,7 @@ go_library(
         "//runner",
         "//svcctl",
         "//svclib",
-        "@rules_go//go/runfiles:go_default_library",
+        "@rules_go//go/runfiles",
     ] + select({
         "@rules_go//go/platform:aix": [
             "@org_golang_x_sys//unix",
@@ -55,10 +55,10 @@ go_library(
 
 go_binary(
     name = "svcinit",
-    embed = [":svcinit_lib"],
     data = ["//cmd/get_assigned_port"],
+    embed = [":svcinit_lib"],
+    visibility = ["//visibility:public"],
     x_defs = {
         "getAssignedPortRlocationPath": "$(rlocationpath //cmd/get_assigned_port)",
     },
-    visibility = ["//visibility:public"],
 )

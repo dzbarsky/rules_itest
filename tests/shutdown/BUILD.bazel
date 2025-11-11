@@ -19,10 +19,10 @@ itest_service(
     name = "service_timeout_error",
     args = ["$${PORT}"],
     autoassign_port = True,
+    enforce_graceful_shutdown = ":enforce_graceful_shutdown",
     env = {
         "SHUTDOWN_WAIT_SECONDS": "1000",
     },
-    enforce_graceful_shutdown = ":enforce_graceful_shutdown",
     exe = ":server",
     http_health_check_address = "http://localhost:$${PORT}",
     tags = ["manual"],
@@ -44,10 +44,10 @@ itest_service(
     name = "service_graceful",
     args = ["$${PORT}"],
     autoassign_port = True,
+    enforce_graceful_shutdown = ":enforce_graceful_shutdown",
     env = {
         "SHUTDOWN_WAIT_SECONDS": "1",
     },
-    enforce_graceful_shutdown = ":enforce_graceful_shutdown",
     exe = ":server",
     http_health_check_address = "http://localhost:$${PORT}",
     shutdown_timeout = "10s",

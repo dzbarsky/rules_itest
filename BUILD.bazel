@@ -1,9 +1,8 @@
+load("@bazel_lib//:bzl_library.bzl", "bzl_library")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag", "string_flag")
 
-alias(
-    name = "gazelle",
-    actual = "//gazelle",
-)
+# gazelle:prefix rules_itest
+# gazelle:map_kind bzl_library bzl_library @bazel_lib//:bzl_library.bzl
 
 cc_binary(
     name = "exit0",
@@ -54,4 +53,11 @@ bool_flag(
     name = "enforce_graceful_shutdown",
     build_setting_default = False,
     visibility = ["//visibility:public"],
+)
+
+bzl_library(
+    name = "itest",
+    srcs = ["itest.bzl"],
+    visibility = ["//visibility:public"],
+    deps = ["//private:itest"],
 )

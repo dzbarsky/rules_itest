@@ -1,4 +1,4 @@
-load("@aspect_bazel_lib//lib:copy_file.bzl", "copy_file")
+load("@bazel_lib//lib:copy_file.bzl", "copy_file")
 load("@rules_go//go:def.bzl", "go_binary", "go_library")
 load("@rules_itest//:itest.bzl", "itest_service")
 load("@rules_java//java:defs.bzl", "java_binary")

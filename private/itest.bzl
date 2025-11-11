@@ -35,7 +35,7 @@ In `bazel run` mode, the service manager will write the value of `SVCCTL_PORT` t
 This can be used in conjunction with the `/v0/port` API to let other tools interact with the managed services.
 """
 
-load("@aspect_bazel_lib//lib:paths.bzl", "to_rlocation_path")
+load("@bazel_lib//lib:paths.bzl", "to_rlocation_path")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 
 _ServiceGroupInfo = provider(
