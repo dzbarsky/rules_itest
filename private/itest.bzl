@@ -190,11 +190,13 @@ def _itest_service_impl(ctx):
     shutdown_timeout = ctx.attr.shutdown_timeout or ctx.attr._default_shutdown_timeout[BuildSettingInfo].value
 
     extra_service_spec_kwargs = {
+        "name": ctx.attr.name,
         "type": "service",
         "http_health_check_address": ctx.attr.http_health_check_address,
         "autoassign_port": ctx.attr.autoassign_port,
         "so_reuseport_aware": ctx.attr.so_reuseport_aware,
         "named_ports": ctx.attr.named_ports,
+        "named_ports_in_env": ctx.attr.named_ports_in_env,
         "hot_reloadable": ctx.attr.hot_reloadable,
         "expected_start_duration": ctx.attr.expected_start_duration,
         "health_check_interval": ctx.attr.health_check_interval,
@@ -242,6 +244,11 @@ _itest_service_attrs = _itest_binary_attrs | {
         For example, a port assigned with `named_ports = ["http_port"]` will be assigned a fully-qualified name of `@@//label/for:service:http_port`.
 
         Named ports are accessible through the service-port mapping. For more details, see `autoassign_port`.""",
+    ),
+    "named_ports_in_env": attr.bool(
+        doc = """If set, each named port will also be assigned to a environment variable. The format for the environment
+        variable name is ASSIGNED_PORTS_<SERVICE>_<PORT NAME>. The value will be the automatially assigned port. This is
+        designed to make it easier to interpolate assigned ports into third party services."""
     ),
     "so_reuseport_aware": attr.bool(
         doc = """If set, the service manager will not release the autoassigned port. The service binary must use SO_REUSEPORT when binding it.

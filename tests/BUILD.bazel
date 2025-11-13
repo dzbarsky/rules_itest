@@ -90,6 +90,7 @@ itest_service(
     autoassign_port = True,
     exe = "//go_service",
     http_health_check_address = "http://127.0.0.1:$${@@//:named_port:http_port}",
+    named_ports_in_env = True,
     named_ports = ["http_port"],
 )
 

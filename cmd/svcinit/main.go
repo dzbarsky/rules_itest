@@ -405,6 +405,9 @@ func assignPorts(
 				log.Printf("Assigning port %s to %s\n", port, qualifiedPortName)
 			}
 
+			if spec.NamedPortsInEnv && portName != "" {
+				os.Setenv(fmt.Sprintf("ASSIGNED_PORTS_%s_%s", spec.Name, portName), port)
+			}
 			ports.Set(qualifiedPortName, port)
 
 			if !spec.SoReuseportAware {
@@ -426,7 +429,6 @@ func assignPorts(
 			if portName != "" {
 				qualifiedPortName += ":" + portName
 			}
-
 			ports.Set(qualifiedPortName, ports[aliasedTo])
 		}
 	}

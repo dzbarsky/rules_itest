@@ -6,6 +6,7 @@ import "rules_itest/logger"
 type ServiceSpec struct {
 	// Type can be "service", "task", or "group".
 	Type                    string            `json:"type"`
+	Name                    string            `json:"name"`
 	Label                   string            `json:"label"`
 	Args                    []string          `json:"args"`
 	Env                     map[string]string `json:"env"`
@@ -22,6 +23,7 @@ type ServiceSpec struct {
 	AutoassignPort          bool              `json:"autoassign_port"`
 	SoReuseportAware        bool              `json:"so_reuseport_aware"`
 	NamedPorts              []string          `json:"named_ports"`
+	NamedPortsInEnv         bool              `json:"named_ports_in_env"`
 	HotReloadable           bool              `json:"hot_reloadable"`
 	PortAliases             map[string]string `json:"port_aliases"`
 	ShutdownSignal          string            `json:"shutdown_signal"`

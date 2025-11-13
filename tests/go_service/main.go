@@ -2,10 +2,12 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/bazelbuild/rules_go/go/runfiles"
@@ -30,6 +32,11 @@ func main() {
 		}()
 	}
 
+	for _, ev := range os.Environ() {
+		if strings.HasPrefix(ev, "ASSIGNED_PORTS_") {
+			fmt.Println(ev)
+		}
+	}
 	if *port == "" {
 		portStr := os.Getenv("PORT")
 		port = &portStr
