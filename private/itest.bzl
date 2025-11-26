@@ -41,7 +41,7 @@ load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 _ServiceGroupInfo = provider(
     doc = "Info about a service group",
     fields = {
-        "deferred": "Flag if this service should be deferred or not",
+        "deferred": "Flag if this service/task/group should be deferred or not",
         "services": "Dict of services/tasks",
     },
 )
@@ -93,6 +93,9 @@ _svcinit_attrs = {
 }
 
 _itest_binary_attrs = {
+    "deferred": attr.bool(
+        doc = """If set, the service/task will not be started on boot up. It can be started using the service manager's control API.""",
+    ),
     "exe": attr.label(
         mandatory = True,
         executable = True,
@@ -123,11 +126,14 @@ def _compute_env(ctx, underlying_target):
 
     return env
 
-def _itest_binary_impl(ctx, extra_service_spec_kwargs, extra_exe_runfiles = []):
-    if hasattr(ctx.attr, "deferred") and not ctx.attr.deferred:
-        for dep in ctx.attr.deps:
+def _validate_deferred(ctx, deps):
+    if not ctx.attr.deferred:
+        for dep in deps:
             if dep[_ServiceGroupInfo].deferred:
                 fail("Non-deferred itest_service cannot depend on deferred itest_service: %s depends on %s" % (ctx.label, dep.label))
+
+def _itest_binary_impl(ctx, extra_service_spec_kwargs, extra_exe_runfiles = []):
+    _validate_deferred(ctx, ctx.attr.deps)
 
     exe_runfiles = [ctx.attr.exe.default_runfiles] + extra_exe_runfiles
 
@@ -171,7 +177,7 @@ def _itest_binary_impl(ctx, extra_service_spec_kwargs, extra_exe_runfiles = []):
     return [
         RunEnvironmentInfo(environment = _run_environment(ctx, service_specs_file)),
         DefaultInfo(runfiles = runfiles),
-        _ServiceGroupInfo(services = services, deferred = getattr(ctx.attr, "deferred", False)),
+        _ServiceGroupInfo(services = services, deferred = ctx.attr.deferred),
     ]
 
 def _validate_duration(name, s):
@@ -257,9 +263,6 @@ _itest_service_attrs = _itest_binary_attrs | {
 
         Must only be set when `autoassign_port` is enabled or `named_ports` are used.""",
     ),
-    "deferred": attr.bool(
-        doc = """If set, the service manager will not be start on boot up. It can be started using the service manager's control API.""",
-    ),
     "expected_start_duration": attr.string(
         default = "0s",
         doc = "How long the service expected to take before passing a healthcheck. Any failing health checks before this duration elapses will not be logged.",
@@ -337,6 +340,8 @@ All [common binary attributes](https://bazel.build/reference/be/common-definitio
 )
 
 def _itest_service_group_impl(ctx):
+    _validate_deferred(ctx, ctx.attr.services)
+
     services = _collect_services(ctx.attr.services)
 
     service = struct(
@@ -355,10 +360,13 @@ def _itest_service_group_impl(ctx):
     return [
         RunEnvironmentInfo(environment = _run_environment(ctx, service_specs_file)),
         DefaultInfo(runfiles = runfiles),
-        _ServiceGroupInfo(services = services, deferred = False),
+        _ServiceGroupInfo(services = services, deferred = ctx.attr.deferred),
     ]
 
 _itest_service_group_attrs = _svcinit_attrs | {
+    "deferred": attr.bool(
+        doc = """If set, the group will not be started on boot up. It can be started using the service manager's control API.""",
+    ),
     "port_aliases": attr.string_dict(
         doc = """Port aliases allow you to 're-export' another service's port as belonging to this service group.
 This can be used to create abstractions (such as an itest_service combined with an itest_task) but not leak
