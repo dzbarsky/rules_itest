@@ -1,3 +1,6 @@
 import ../.bazelrc
 common --noenable_runfiles
 common --@rules_go//go/config:pure
+
+# TODO: Remove once transitives are fixed
+common --incompatible_autoload_externally=+@rules_cc

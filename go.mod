@@ -3,6 +3,6 @@ module rules_itest
 go 1.22.0
 
 require (
-	github.com/bazelbuild/rules_go v0.52.0
-	golang.org/x/sys v0.25.0
+	github.com/bazelbuild/rules_go v0.59.0
+	golang.org/x/sys v0.30.0
 )

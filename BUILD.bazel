@@ -1,5 +1,7 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag", "string_flag")
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 # gazelle:prefix rules_itest
 # gazelle:map_kind bzl_library bzl_library @bazel_lib//:bzl_library.bzl
