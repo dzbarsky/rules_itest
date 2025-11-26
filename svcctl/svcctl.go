@@ -4,7 +4,9 @@ package svcctl
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"os/exec"
@@ -58,12 +60,38 @@ func handleHealthCheck(ctx context.Context, r *runner.Runner, _ chan error, w ht
 	w.WriteHeader(http.StatusOK)
 }
 
+func colorize(s svclib.VersionedServiceSpec) string {
+	return s.Colorize(s.Label)
+}
+
 func handleStart(ctx context.Context, r *runner.Runner, serviceErrCh chan error, w http.ResponseWriter, req *http.Request) {
 	s, status, err := getService(r, req)
 	if err != nil {
 		http.Error(w, err.Error(), status)
 		return
 	}
+
+	if s.Deferred {
+		// make sure all the non-deferred dependencies are started
+		for _, dep := range s.Deps {
+			depService := r.GetInstance(dep)
+			if depService == nil {
+				http.Error(w, fmt.Sprintf("dependency %q not found", dep), http.StatusInternalServerError)
+				return
+			}
+
+			if depService.Deferred {
+				continue
+			}
+
+			depsErr := s.WaitUntilHealthy(ctx)
+			if depsErr != nil {
+				http.Error(w, fmt.Sprintf("Failed to wait for %q until healthy", dep), http.StatusInternalServerError)
+			}
+		}
+	}
+
+	log.Printf("Starting %s\n", colorize(s.VersionedServiceSpec))
 
 	err = s.Start(ctx)
 	if err != nil {
@@ -74,8 +102,8 @@ func handleStart(ctx context.Context, r *runner.Runner, serviceErrCh chan error,
 	// NOTE: it is important to wait here because we started the service without using `StartAll`,
 	// which waits for processes to prevent them from turning into zombies.
 	go func() {
-		err := s.Wait()
-		if err != nil && !s.Killed() {
+		waitErr := s.Wait()
+		if waitErr != nil && !s.Killed() {
 			serviceErrCh <- fmt.Errorf(s.Colorize(s.Label) + " exited with error: " + err.Error())
 		}
 	}()
@@ -147,9 +175,11 @@ func handleWait(ctx context.Context, r *runner.Runner, _ chan error, w http.Resp
 			w.Write([]byte("0"))
 			return
 		}
-		if err, ok := err.(*exec.ExitError); ok {
+
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(fmt.Sprintf("%d", err.ExitCode())))
+			w.Write([]byte(fmt.Sprintf("%d", exitErr.ExitCode())))
 			return
 		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)

@@ -56,6 +56,11 @@ func (r *Runner) StartAll(serviceErrCh chan error) ([]topological.Task, error) {
 			return nil
 		}
 
+		if service.Deferred {
+			log.Printf("Deferring %s\n", colorize(service.VersionedServiceSpec))
+			return nil
+		}
+
 		if terseOutput {
 			log.Printf("Starting %s\n", colorize(service.VersionedServiceSpec))
 		} else {
@@ -85,6 +90,10 @@ func (r *Runner) StartAll(serviceErrCh chan error) ([]topological.Task, error) {
 			continue
 		}
 
+		if service.Deferred {
+			continue
+		}
+
 		// TODO(zbarsky): Can remove the loop var once Go is sufficiently upgraded.
 		go func(service *ServiceInstance) {
 			err := service.Wait()
@@ -99,7 +108,7 @@ func (r *Runner) StartAll(serviceErrCh chan error) ([]topological.Task, error) {
 
 func (r *Runner) StopAll() (map[string]*os.ProcessState, error) {
 	tasks := allTasks(r.serviceInstances, func(ctx context.Context, service *ServiceInstance) error {
-		if service.Type == "group" {
+		if service.Type == "group" || service.Deferred {
 			return nil
 		}
 		log.Printf("Stopping %s\n", colorize(service.VersionedServiceSpec))
@@ -111,7 +120,7 @@ func (r *Runner) StopAll() (map[string]*os.ProcessState, error) {
 	states := make(map[string]*os.ProcessState)
 
 	for _, serviceInstance := range r.serviceInstances {
-		if serviceInstance.Type == "group" {
+		if serviceInstance.Type == "group" || serviceInstance.Deferred {
 			continue
 		}
 		states[serviceInstance.Label] = serviceInstance.ProcessState()
@@ -263,7 +272,7 @@ func initializeServiceCmd(ctx context.Context, instance *ServiceInstance) error 
 
 	// Even if a child process exits, Wait will block until the I/O pipes are closed.
 	// They may have been forwarded to an orphaned child, so we disable that behavior to unblock exit.
-	if s.Type == "service" {
+	if s.Type == "service" && !s.Deferred {
 		// We need a bit of grace period to allow I/O pipes to close on our end.
 		cmd.WaitDelay = 50 * time.Millisecond
 	}

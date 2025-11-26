@@ -41,6 +41,7 @@ load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 _ServiceGroupInfo = provider(
     doc = "Info about a service group",
     fields = {
+        "deferred": "Flag if this service should be deferred or not",
         "services": "Dict of services/tasks",
     },
 )
@@ -123,6 +124,11 @@ def _compute_env(ctx, underlying_target):
     return env
 
 def _itest_binary_impl(ctx, extra_service_spec_kwargs, extra_exe_runfiles = []):
+    if hasattr(ctx.attr, "deferred") and not ctx.attr.deferred:
+        for dep in ctx.attr.deps:
+            if dep[_ServiceGroupInfo].deferred:
+                fail("Non-deferred itest_service cannot depend on deferred itest_service: %s depends on %s" % (ctx.label, dep.label))
+
     exe_runfiles = [ctx.attr.exe.default_runfiles] + extra_exe_runfiles
 
     version_file_deps = ctx.files.data + ctx.files.exe
@@ -165,7 +171,7 @@ def _itest_binary_impl(ctx, extra_service_spec_kwargs, extra_exe_runfiles = []):
     return [
         RunEnvironmentInfo(environment = _run_environment(ctx, service_specs_file)),
         DefaultInfo(runfiles = runfiles),
-        _ServiceGroupInfo(services = services),
+        _ServiceGroupInfo(services = services, deferred = getattr(ctx.attr, "deferred", False)),
     ]
 
 def _validate_duration(name, s):
@@ -194,6 +200,7 @@ def _itest_service_impl(ctx):
         "http_health_check_address": ctx.attr.http_health_check_address,
         "autoassign_port": ctx.attr.autoassign_port,
         "so_reuseport_aware": ctx.attr.so_reuseport_aware,
+        "deferred": ctx.attr.deferred,
         "named_ports": ctx.attr.named_ports,
         "hot_reloadable": ctx.attr.hot_reloadable,
         "expected_start_duration": ctx.attr.expected_start_duration,
@@ -249,6 +256,9 @@ _itest_service_attrs = _itest_binary_attrs | {
         aware of the port assignment mechanism.
 
         Must only be set when `autoassign_port` is enabled or `named_ports` are used.""",
+    ),
+    "deferred": attr.bool(
+        doc = """If set, the service manager will not be start on boot up. It can be started using the service manager's control API.""",
     ),
     "expected_start_duration": attr.string(
         default = "0s",
@@ -345,7 +355,7 @@ def _itest_service_group_impl(ctx):
     return [
         RunEnvironmentInfo(environment = _run_environment(ctx, service_specs_file)),
         DefaultInfo(runfiles = runfiles),
-        _ServiceGroupInfo(services = services),
+        _ServiceGroupInfo(services = services, deferred = False),
     ]
 
 _itest_service_group_attrs = _svcinit_attrs | {
