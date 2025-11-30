@@ -1,0 +1,50 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "otel_collector_lib",
+    srcs = [
+        "components.go",
+        "main.go",
+        "main_others.go",
+        "main_windows.go",
+    ],
+    importpath = "rules_itest/examples/otel_collector",
+    visibility = ["//visibility:private"],
+    deps = [
+        "@com_github_open_telemetry_opentelemetry_collector_contrib_exporter_clickhouseexporter//:clickhouseexporter",
+        "@com_github_open_telemetry_opentelemetry_collector_contrib_exporter_fileexporter//:fileexporter",
+        "@com_github_open_telemetry_opentelemetry_collector_contrib_exporter_rabbitmqexporter//:rabbitmqexporter",
+        "@com_github_open_telemetry_opentelemetry_collector_contrib_exporter_syslogexporter//:syslogexporter",
+        "@com_github_open_telemetry_opentelemetry_collector_contrib_extension_basicauthextension//:basicauthextension",
+        "@com_github_open_telemetry_opentelemetry_collector_contrib_processor_transformprocessor//:transformprocessor",
+        "@com_github_open_telemetry_opentelemetry_collector_contrib_receiver_prometheusreceiver//:prometheusreceiver",
+        "@io_opentelemetry_go_collector_component//:component",
+        "@io_opentelemetry_go_collector_confmap//:confmap",
+        "@io_opentelemetry_go_collector_confmap_provider_envprovider//:envprovider",
+        "@io_opentelemetry_go_collector_confmap_provider_fileprovider//:fileprovider",
+        "@io_opentelemetry_go_collector_confmap_provider_httpprovider//:httpprovider",
+        "@io_opentelemetry_go_collector_confmap_provider_httpsprovider//:httpsprovider",
+        "@io_opentelemetry_go_collector_confmap_provider_yamlprovider//:yamlprovider",
+        "@io_opentelemetry_go_collector_connector//:connector",
+        "@io_opentelemetry_go_collector_exporter//:exporter",
+        "@io_opentelemetry_go_collector_extension//:extension",
+        "@io_opentelemetry_go_collector_otelcol//:otelcol",
+        "@io_opentelemetry_go_collector_processor//:processor",
+        "@io_opentelemetry_go_collector_processor_batchprocessor//:batchprocessor",
+        "@io_opentelemetry_go_collector_receiver//:receiver",
+        "@io_opentelemetry_go_collector_receiver_otlpreceiver//:otlpreceiver",
+        "@io_opentelemetry_go_collector_service//telemetry/otelconftelemetry",
+    ] + select({
+        "@rules_go//go/platform:windows": [
+            "@org_golang_x_sys//windows",
+            "@org_golang_x_sys//windows/svc",
+        ],
+        "//conditions:default": [],
+    }),
+)
+
+go_binary(
+    name = "otel_collector",
+    embed = [":otel_collector_lib"],
+    visibility = ["//visibility:public"],
+)

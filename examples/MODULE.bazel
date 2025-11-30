@@ -5,11 +5,11 @@ local_path_override(
 )
 
 bazel_dep(name = "bazel_lib", version = "3.0.0")
-bazel_dep(name = "bazel_skylib", version = "1.7.1")
-bazel_dep(name = "platforms", version = "0.0.10")
-bazel_dep(name = "rules_shell", version = "0.5.0")
+bazel_dep(name = "bazel_skylib", version = "1.8.2")
+bazel_dep(name = "platforms", version = "1.0.0")
+bazel_dep(name = "rules_shell", version = "0.6.1")
+bazel_dep(name = "hermetic_cc_toolchain", version = "4.0.1")
 
-bazel_dep(name = "hermetic_cc_toolchain", version = "3.1.0")
 toolchains = use_extension("@hermetic_cc_toolchain//toolchain:ext.bzl", "toolchains")
 use_repo(toolchains, "zig_sdk")
 
@@ -18,24 +18,50 @@ register_toolchains(
     "@zig_sdk//toolchain:darwin_arm64",
 )
 
-bazel_dep(name = "gazelle", version = "0.37.0")
+bazel_dep(name = "gazelle", version = "0.47.0")
+
 go_deps = use_extension("@gazelle//:extensions.bzl", "go_deps")
 go_deps.from_file(go_mod = "//:go.mod")
 use_repo(
     go_deps,
     "com_github_aws_aws_sdk_go_v2",
     "com_github_aws_aws_sdk_go_v2_service_dynamodb",
+    "com_github_open_telemetry_opentelemetry_collector_contrib_exporter_clickhouseexporter",
+    "com_github_open_telemetry_opentelemetry_collector_contrib_exporter_fileexporter",
+    "com_github_open_telemetry_opentelemetry_collector_contrib_exporter_rabbitmqexporter",
+    "com_github_open_telemetry_opentelemetry_collector_contrib_exporter_syslogexporter",
+    "com_github_open_telemetry_opentelemetry_collector_contrib_extension_basicauthextension",
+    "com_github_open_telemetry_opentelemetry_collector_contrib_processor_transformprocessor",
+    "com_github_open_telemetry_opentelemetry_collector_contrib_receiver_prometheusreceiver",
+    "io_opentelemetry_go_collector_component",
+    "io_opentelemetry_go_collector_confmap",
+    "io_opentelemetry_go_collector_confmap_provider_envprovider",
+    "io_opentelemetry_go_collector_confmap_provider_fileprovider",
+    "io_opentelemetry_go_collector_confmap_provider_httpprovider",
+    "io_opentelemetry_go_collector_confmap_provider_httpsprovider",
+    "io_opentelemetry_go_collector_confmap_provider_yamlprovider",
+    "io_opentelemetry_go_collector_connector",
+    "io_opentelemetry_go_collector_exporter",
+    "io_opentelemetry_go_collector_extension",
+    "io_opentelemetry_go_collector_otelcol",
+    "io_opentelemetry_go_collector_processor",
+    "io_opentelemetry_go_collector_processor_batchprocessor",
+    "io_opentelemetry_go_collector_receiver",
+    "io_opentelemetry_go_collector_receiver_otlpreceiver",
+    "io_opentelemetry_go_collector_service",
+    "org_golang_x_sys",
 )
 
-bazel_dep(name = "rules_go", version = "0.51.0")
+bazel_dep(name = "rules_go", version = "0.59.0")
+
 go_sdk = use_extension("@rules_go//go:extensions.bzl", "go_sdk")
 go_sdk.download(
     name = "go_sdk",
-    version = "1.22.3",
+    version = "1.25.0",
 )
 use_repo(go_sdk, "go_sdk")
 
-bazel_dep(name = "rules_jvm_external", version = "6.2")
+bazel_dep(name = "rules_jvm_external", version = "6.9")
 
 maven = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
 maven.install(
@@ -77,10 +103,11 @@ http_archive(
     http_archive(
         name = "mysql_8_4_0_" + arch,
         build_file = "//mysql:BUILD.mysql",
-        urls = ["https://cdn.mysql.com/archives/mysql-8.4/mysql-8.4.0-" + arch + ".tar." + ext],
         integrity = integrity,
         strip_prefix = "mysql-8.4.0-" + arch,
-    ) for (arch, integrity, ext) in [
+        urls = ["https://cdn.mysql.com/archives/mysql-8.4/mysql-8.4.0-" + arch + ".tar." + ext],
+    )
+    for (arch, integrity, ext) in [
         ("macos14-arm64", "sha256-tK10p4qkN43wDhFkyZed1mDqCb9H4F9u+DJPTqFBhhg=", "gz"),
         ("macos14-x86_64", "sha256-rbuLfiYVR3aKVI2Xk4pfG2bPhdruCdsorEu2V6p9QZI=", "gz"),
         ("linux-glibc2.28-aarch64", "sha256-9NkYaSm7JgRqO9GjuLdL0jXn7GkxjwmtchjPzABwk5s=", "xz"),
