@@ -8,6 +8,12 @@ load(
     _service_test = "service_test",
 )
 
+def port(label):
+    return "$${%s}" % (str(native.package_relative_label(label)))
+
+def named_port(label, name):
+    return "$${%s:%s}" % (str(native.package_relative_label(label)), name)
+
 def itest_service(name, tags = [], hygienic = True, **kwargs):
     _itest_service(
         name = name,

@@ -1,5 +1,5 @@
 load("@gazelle//:def.bzl", "gazelle")
-load("@rules_itest//:itest.bzl", "itest_service", "itest_service_group")
+load("@rules_itest//:itest.bzl", "itest_service", "itest_service_group", "named_port", "port")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -85,7 +85,7 @@ itest_service(
     name = "named_port",
     args = [
         "-port",
-        "$${@@//:named_port:http_port}",
+        named_port(":named_port", "http_port")
     ],
     autoassign_port = True,
     exe = "//go_service",
@@ -107,7 +107,7 @@ itest_service(
     name = "autoassigned_env2",
     autoassign_port = True,
     env = {
-        "PORT": "$${@@//:autoassigned_env2}",
+        "PORT": port(":autoassigned_env2"),
     },
     exe = "//go_service",
     http_health_check_address = "http://127.0.0.1:$${PORT}",
@@ -118,7 +118,7 @@ itest_service(
     name = "_speedy_service2",
     args = [
         "-port",
-        "$${@@//:speedy_service2}",
+        port(":speedy_service2"),
     ],
     autoassign_port = True,
     env = {"foo": "bar"},
