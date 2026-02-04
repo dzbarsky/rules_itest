@@ -1,0 +1,28 @@
+load("@rules_itest//:itest.bzl", "itest_service", "service_test")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+load("//:must_fail.bzl", "must_fail")
+
+package(default_visibility = ["//visibility:public"])
+
+sh_binary(
+    name = "crash_immediately",
+    srcs = ["crash_immediately.sh"],
+)
+
+itest_service(
+    name = "immediate_exit_service",
+    autoassign_port = True,
+    env = {
+        "PORT": "$${PORT}",
+    },
+    exe = ":crash_immediately",
+    health_check_interval = "100ms",
+    http_health_check_address = "http://127.0.0.1:$${PORT}/health",
+    tags = ["manual"],
+)
+
+must_fail(
+    name = "service_exits_before_healthy_failure",
+    test = "immediate_exit_service_hygiene_test",
+    timeout = "short",
+)

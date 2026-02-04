@@ -37,13 +37,17 @@ type ServiceInstance struct {
 }
 
 func (s *ServiceInstance) Start(ctx context.Context) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	// If the process has finished running, we need to reinitialize the cmd.
-	if s.cmd.ProcessState != nil {
-		initializeServiceCmd(ctx, s)
+	if s.isRunning() {
+		return fmt.Errorf("%s is already running", s.Colorize(s.Label))
 	}
+
+	// If the process has finished running, we need to reinitialize the cmd.
+	if err := initializeServiceCmd(ctx, s); err != nil {
+		return err
+	}
+	s.mu.Lock()
 	s.startTime = time.Now()
+	s.mu.Unlock()
 	return s.startErrFn()
 }
 
@@ -78,13 +82,19 @@ func (s *ServiceInstance) WaitUntilHealthy(ctx context.Context) error {
 	}
 
 	for {
-		err := s.Error()
-		if err != nil {
+		if err := s.Error(); err != nil {
 			return err
 		}
 
-		err = ctx.Err()
-		if err != nil {
+		if s.isDone() {
+			state := s.cmd.ProcessState
+			if state != nil {
+				return fmt.Errorf("%s exited before becoming healthy: %s", coloredLabel, state.String())
+			}
+			return fmt.Errorf("%s exited before becoming healthy", coloredLabel)
+		}
+
+		if err := ctx.Err(); err != nil {
 			return err
 		}
 
@@ -297,7 +307,13 @@ func (s *ServiceInstance) StopWithSignal(signal syscall.Signal) error {
 }
 
 func (s *ServiceInstance) Wait() error {
-	return s.waitErrFn()
+	err := s.waitErrFn()
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.runErr = err
+
+	return err
 }
 
 func (s *ServiceInstance) Pid() int {
@@ -319,6 +335,15 @@ func (s *ServiceInstance) isDone() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.done && s.cmd.ProcessState != nil
+}
+
+func (s *ServiceInstance) isRunning() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.cmd != nil &&
+		s.cmd.Process != nil &&
+		!s.done &&
+		!s.killed
 }
 
 func (s *ServiceInstance) SetDone() {

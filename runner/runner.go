@@ -71,6 +71,14 @@ func (r *Runner) StartAll(serviceErrCh chan error) ([]topological.Task, error) {
 		if startErr != nil {
 			return startErr
 		}
+
+		go func() {
+			err := service.Wait()
+			if err != nil && !service.Killed() {
+				serviceErrCh <- fmt.Errorf(colorize(service.VersionedServiceSpec) + " exited with error: " + err.Error())
+			}
+		}()
+
 		if service.VersionedServiceSpec.HealthCheckTimeout != "" {
 			timeout, err := time.ParseDuration(service.VersionedServiceSpec.HealthCheckTimeout)
 			if err != nil {
@@ -84,24 +92,6 @@ func (r *Runner) StartAll(serviceErrCh chan error) ([]topological.Task, error) {
 	})
 	starter := topological.NewRunner(tasks)
 	err := starter.Run(r.ctx)
-
-	for _, service := range r.serviceInstances {
-		if service.Type == "group" {
-			continue
-		}
-
-		if service.Deferred {
-			continue
-		}
-
-		// TODO(zbarsky): Can remove the loop var once Go is sufficiently upgraded.
-		go func(service *ServiceInstance) {
-			err := service.Wait()
-			if err != nil && !service.Killed() {
-				serviceErrCh <- fmt.Errorf(colorize(service.VersionedServiceSpec) + " exited with error: " + err.Error())
-			}
-		}(service)
-	}
 
 	return starter.CriticalPath(), err
 }
@@ -293,6 +283,12 @@ func initializeServiceCmd(ctx context.Context, instance *ServiceInstance) error 
 		}
 		instance.stdin = stdin
 	}
+
+	instance.mu.Lock()
+	instance.runErr = nil
+	instance.done = false
+	instance.healthcheckAttempted = false
+	instance.mu.Unlock()
 
 	return nil
 }

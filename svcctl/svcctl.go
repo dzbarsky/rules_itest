@@ -104,7 +104,7 @@ func handleStart(ctx context.Context, r *runner.Runner, serviceErrCh chan error,
 	go func() {
 		waitErr := s.Wait()
 		if waitErr != nil && !s.Killed() {
-			serviceErrCh <- fmt.Errorf(s.Colorize(s.Label) + " exited with error: " + err.Error())
+			serviceErrCh <- fmt.Errorf(s.Colorize(s.Label) + " exited with error: " + waitErr.Error())
 		}
 	}()
 
