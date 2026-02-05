@@ -1,6 +1,7 @@
 load("@aspect_rules_js//js:defs.bzl", "js_binary")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag", "string_flag")
 load("@rules_itest//:itest.bzl", "itest_service", "service_test")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("//:must_fail.bzl", "must_fail")
 
 bool_flag(
@@ -83,4 +84,12 @@ service_test(
 must_fail(
     name = "shutdown_test_failure",
     test = "timeout_shutdown_test",
+)
+
+sh_test(
+    name = "sigterm_before_sigkill_test",
+    srcs = ["sigterm_before_sigkill_test.sh"],
+    data = [":service_graceful"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+    tags = ["manual"],
 )
