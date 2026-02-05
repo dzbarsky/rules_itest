@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"runtime"
 	"sync"
+	"syscall"
 	"time"
 
 	"rules_itest/logger"
@@ -263,8 +264,22 @@ func initializeServiceCmd(ctx context.Context, instance *ServiceInstance) error 
 	// Even if a child process exits, Wait will block until the I/O pipes are closed.
 	// They may have been forwarded to an orphaned child, so we disable that behavior to unblock exit.
 	if s.Type == "service" && !s.Deferred {
-		// We need a bit of grace period to allow I/O pipes to close on our end.
-		cmd.WaitDelay = 50 * time.Millisecond
+		// Use the configured shutdown timeout as WaitDelay, with a minimum for I/O pipe closing.
+		waitDelay := 50 * time.Millisecond
+		if shutdownTimeout, err := time.ParseDuration(s.ShutdownTimeout); err == nil && shutdownTimeout > waitDelay {
+			waitDelay = shutdownTimeout
+		}
+		cmd.WaitDelay = waitDelay
+
+		// Send the configured shutdown signal instead of SIGKILL when context is cancelled.
+		// This allows services to perform graceful shutdown before being forcefully killed.
+		cmd.Cancel = func() error {
+			sig := syscall.SIGKILL
+			if s.ShutdownSignal == "SIGTERM" {
+				sig = syscall.SIGTERM
+			}
+			return killGroup(cmd, sig)
+		}
 	}
 
 	instance.cmd = cmd
