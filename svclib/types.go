@@ -19,9 +19,10 @@ type ServiceSpec struct {
 	HealthCheckTimeout      string            `json:"health_check_timeout"`
 	VersionFile             string            `json:"version_file"`
 	Deps                    []string          `json:"deps"`
+	Port                    string            `json:"port"`
 	AutoassignPort          bool              `json:"autoassign_port"`
 	SoReuseportAware        bool              `json:"so_reuseport_aware"`
-	NamedPorts              []string          `json:"named_ports"`
+	NamedPorts              map[string]string `json:"named_ports"`
 	HotReloadable           bool              `json:"hot_reloadable"`
 	PortAliases             map[string]string `json:"port_aliases"`
 	ShutdownSignal          string            `json:"shutdown_signal"`

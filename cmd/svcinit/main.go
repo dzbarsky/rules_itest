@@ -8,12 +8,12 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"maps"
 	"math"
 	"net"
 	"os"
 	"os/exec"
 	"os/signal"
-	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -360,15 +360,15 @@ func assignPorts(
 	ports := svclib.Ports{}
 
 	for label, spec := range serviceSpecs {
-		namedPorts := slices.Clone(spec.NamedPorts)
+		namedPorts := maps.Clone(spec.NamedPorts)
 		if spec.AutoassignPort {
-			namedPorts = append(namedPorts, "")
+			namedPorts[""] = spec.Port
 		}
 
 		// Note, this can cause collisions. So be careful!
 		// To avoid port collisions, set the `so_reuseport_aware` option on the service definition
 		// and use the SO_REUSEPORT socket option in your services.
-		for _, portName := range namedPorts {
+		for portName, port := range namedPorts {
 			// We do a bit of a dance here to set SO_LINGER to 0. For details, see
 			// https://stackoverflow.com/questions/71975992/what-really-is-the-linger-time-that-can-be-set-with-so-linger-on-sockets
 			lc := net.ListenConfig{
@@ -387,18 +387,18 @@ func assignPorts(
 				},
 			}
 
-			listener, err := lc.Listen(context.Background(), "tcp", "127.0.0.1:0")
+			listener, err := lc.Listen(context.Background(), "tcp", "127.0.0.1:"+port)
 			if err != nil {
 				return nil, err
 			}
-			_, port, err := net.SplitHostPort(listener.Addr().String())
+			_, port, err = net.SplitHostPort(listener.Addr().String())
 			if err != nil {
 				return nil, err
 			}
 
 			qualifiedPortName := label
 			if portName != "" {
-				qualifiedPortName += ":" + portName
+				qualifiedPortName += "." + portName
 			}
 
 			if !terseOutput {
@@ -406,6 +406,20 @@ func assignPorts(
 			}
 
 			ports.Set(qualifiedPortName, port)
+
+			{
+				// TODO(zbarsky): Clean this up after April 2026
+				qualifiedPortName := label
+				if portName != "" {
+					qualifiedPortName += ":" + portName
+				}
+
+				if !terseOutput {
+					log.Printf("Assigning port %s to %s\n", port, qualifiedPortName)
+				}
+
+				ports.Set(qualifiedPortName, port)
+			}
 
 			if !spec.SoReuseportAware {
 				toClose = append(toClose, listener)
@@ -424,10 +438,20 @@ func assignPorts(
 		for portName, aliasedTo := range spec.PortAliases {
 			qualifiedPortName := label
 			if portName != "" {
-				qualifiedPortName += ":" + portName
+				qualifiedPortName += "." + portName
 			}
 
 			ports.Set(qualifiedPortName, ports[aliasedTo])
+
+			{
+				// TODO(zbarsky): Clean this up after April 2026
+				qualifiedPortName := label
+				if portName != "" {
+					qualifiedPortName += ":" + portName
+				}
+
+				ports.Set(qualifiedPortName, ports[aliasedTo])
+			}
 		}
 	}
 
@@ -516,6 +540,7 @@ func augmentServiceSpecs(
 		Replacement{Old: "$${TMPDIR}", New: tmpDir},
 		Replacement{Old: "$${SOCKET_DIR}", New: socketDir},
 	)
+
 	for label, port := range ports {
 		replacements = append(replacements, Replacement{
 			Old: "$${" + label + "}",
