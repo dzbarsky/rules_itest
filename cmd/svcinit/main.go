@@ -139,6 +139,7 @@ func main() {
 
 	r, err := runner.New(ctx, serviceSpecs)
 	must(err)
+	defer r.StopAll()
 
 	servicesErrCh := make(chan error, len(unversionedSpecs))
 
@@ -306,7 +307,9 @@ func main() {
 				log.Println("Service exited uncleanly, marking test as failed.")
 				exitCode = 1
 				testCancel()
-				<-testErrCh // Wait for test process to exit
+				if testLabel != "" {
+					<-testErrCh // Wait for test process to exit
+				}
 			}
 		}
 
@@ -326,7 +329,7 @@ func main() {
 			}
 		}
 
-		if testLabel != "" && testCmd != nil && testCmd.ProcessState != nil {
+		if testLabel != "" && testCmd.ProcessState != nil {
 			buf.WriteString(fmt.Sprintf("%s\t%s\t%s\n",
 				testLabel, testCmd.ProcessState.UserTime(), testCmd.ProcessState.SystemTime()))
 		}

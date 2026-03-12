@@ -22,6 +22,9 @@ func main() {
 	<-sigCh
 
 	markerPath := os.Getenv("TEST_TMPDIR") + "/shutdown_marker"
-	os.WriteFile(markerPath, []byte("shutdown"), 0644)
+	if err := os.WriteFile(markerPath, []byte("shutdown"), 0644); err != nil {
+		fmt.Printf("Failed to write shutdown marker: %v\n", err)
+		os.Exit(1)
+	}
 	fmt.Println("Graceful shutdown completed")
 }

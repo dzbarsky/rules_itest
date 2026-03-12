@@ -18,6 +18,12 @@ cc_test(
     visibility = ["//visibility:public"],
 )
 
+cc_binary(
+    name = "exit1",
+    srcs = ["exit1.c"],
+    visibility = ["//visibility:public"],
+)
+
 bool_flag(
     name = "allow_configuring_tmpdir",
     build_setting_default = False,
