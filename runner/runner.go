@@ -263,8 +263,18 @@ func initializeServiceCmd(ctx context.Context, instance *ServiceInstance) error 
 	// Even if a child process exits, Wait will block until the I/O pipes are closed.
 	// They may have been forwarded to an orphaned child, so we disable that behavior to unblock exit.
 	if s.Type == "service" && !s.Deferred {
-		// We need a bit of grace period to allow I/O pipes to close on our end.
-		cmd.WaitDelay = 50 * time.Millisecond
+		// Don't kill the process on context cancellation; StopAll() handles
+		// orderly shutdown in reverse dependency order.
+		cmd.Cancel = func() error { return nil }
+
+		// Use the configured shutdown timeout as WaitDelay so the process has
+		// time to exit after StopAll() sends the shutdown signal. Fall back to
+		// a small grace period for I/O pipe closing.
+		waitDelay := 50 * time.Millisecond
+		if shutdownTimeout, err := time.ParseDuration(s.ShutdownTimeout); err == nil && shutdownTimeout > waitDelay {
+			waitDelay = shutdownTimeout
+		}
+		cmd.WaitDelay = waitDelay
 	}
 
 	instance.cmd = cmd
