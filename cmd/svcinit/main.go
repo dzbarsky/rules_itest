@@ -193,7 +193,24 @@ func main() {
 		testCtx, testCancel := context.WithCancel(ctx)
 		testErrCh := make(chan error, 1)
 		if testLabel != "" {
-			testArgs := os.Args[1:]
+			// Bazel's args attribute converts $$ to $, so args arrive with
+			// single-$ placeholders (e.g. ${@@//:svc}) unlike env/spec files
+			// which preserve the literal $$ since they're read from JSON.
+			argReplacements := make([]Replacement, 0, 2+len(ports))
+			argReplacements = append(argReplacements,
+				Replacement{Old: "${TMPDIR}", New: os.Getenv("TMPDIR")},
+				Replacement{Old: "${SOCKET_DIR}", New: os.Getenv("SOCKET_DIR")},
+			)
+			for label, port := range ports {
+				argReplacements = append(argReplacements, Replacement{
+					Old: "${" + label + "}",
+					New: port,
+				})
+			}
+			testArgs := make([]string, len(os.Args[1:]))
+			for i, arg := range os.Args[1:] {
+				testArgs[i] = replaceAll(arg, argReplacements)
+			}
 			testPath, err := runfiles.Rlocation(os.Getenv("SVCINIT_TEST_RLOCATION_PATH"))
 			must(err)
 
@@ -577,6 +594,28 @@ type Replacement struct {
 	New string
 }
 
+func buildReplacements(ports svclib.Ports) []Replacement {
+	replacements := make([]Replacement, 0, 2+len(ports))
+	replacements = append(replacements,
+		Replacement{Old: "$${TMPDIR}", New: os.Getenv("TMPDIR")},
+		Replacement{Old: "$${SOCKET_DIR}", New: os.Getenv("SOCKET_DIR")},
+	)
+	for label, port := range ports {
+		replacements = append(replacements, Replacement{
+			Old: "$${" + label + "}",
+			New: port,
+		})
+	}
+	return replacements
+}
+
+func replaceAll(s string, replacements []Replacement) string {
+	for _, r := range replacements {
+		s = strings.ReplaceAll(s, r.Old, r.New)
+	}
+	return s
+}
+
 func buildTestEnv(ports svclib.Ports) ([]string, error) {
 	testEnvPath, err := runfiles.Rlocation(os.Getenv("SVCINIT_TEST_ENV_RLOCATION_PATH"))
 	if err != nil {
@@ -594,34 +633,15 @@ func buildTestEnv(ports svclib.Ports) ([]string, error) {
 		panic(err)
 	}
 
-	tmpDir := os.Getenv("TMPDIR")
-	socketDir := os.Getenv("SOCKET_DIR")
-
-	replacements := make([]Replacement, 0, 2+len(ports))
-	replacements = append(replacements,
-		Replacement{Old: "$${TMPDIR}", New: tmpDir},
-		Replacement{Old: "$${SOCKET_DIR}", New: socketDir},
-	)
-	for label, port := range ports {
-		replacements = append(replacements, Replacement{
-			Old: "$${" + label + "}",
-			New: port,
-		})
-	}
-
-	replaceAllPorts := func(s string) string {
-		for _, r := range replacements {
-			s = strings.ReplaceAll(s, r.Old, r.New)
-		}
-		return s
-	}
+	replacements := buildReplacements(ports)
 
 	// Note, this can technically specify the same var multiple times.
 	// Last one wins - hope that's what you wanted!
 	baseEnv := os.Environ()
 	for k, v := range env {
-		baseEnv = append(baseEnv, k+"="+replaceAllPorts(v))
+		baseEnv = append(baseEnv, k+"="+replaceAll(v, replacements))
 	}
 
 	return baseEnv, nil
 }
+
