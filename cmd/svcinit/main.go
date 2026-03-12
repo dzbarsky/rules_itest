@@ -196,17 +196,7 @@ func main() {
 			// Bazel's args attribute converts $$ to $, so args arrive with
 			// single-$ placeholders (e.g. ${@@//:svc}) unlike env/spec files
 			// which preserve the literal $$ since they're read from JSON.
-			argReplacements := make([]Replacement, 0, 2+len(ports))
-			argReplacements = append(argReplacements,
-				Replacement{Old: "${TMPDIR}", New: os.Getenv("TMPDIR")},
-				Replacement{Old: "${SOCKET_DIR}", New: os.Getenv("SOCKET_DIR")},
-			)
-			for label, port := range ports {
-				argReplacements = append(argReplacements, Replacement{
-					Old: "${" + label + "}",
-					New: port,
-				})
-			}
+			argReplacements := buildReplacements(ports, "${")
 			testArgs := make([]string, len(os.Args[1:]))
 			for i, arg := range os.Args[1:] {
 				testArgs[i] = replaceAll(arg, argReplacements)
@@ -594,15 +584,18 @@ type Replacement struct {
 	New string
 }
 
-func buildReplacements(ports svclib.Ports) []Replacement {
+// buildReplacements creates port/env substitution pairs.
+// prefix is "$${" for values from JSON files (which preserve literal $$),
+// or "${" for values from Bazel args (where $$ is already collapsed to $).
+func buildReplacements(ports svclib.Ports, prefix string) []Replacement {
 	replacements := make([]Replacement, 0, 2+len(ports))
 	replacements = append(replacements,
-		Replacement{Old: "$${TMPDIR}", New: os.Getenv("TMPDIR")},
-		Replacement{Old: "$${SOCKET_DIR}", New: os.Getenv("SOCKET_DIR")},
+		Replacement{Old: prefix + "TMPDIR}", New: os.Getenv("TMPDIR")},
+		Replacement{Old: prefix + "SOCKET_DIR}", New: os.Getenv("SOCKET_DIR")},
 	)
 	for label, port := range ports {
 		replacements = append(replacements, Replacement{
-			Old: "$${" + label + "}",
+			Old: prefix + label + "}",
 			New: port,
 		})
 	}
@@ -633,7 +626,7 @@ func buildTestEnv(ports svclib.Ports) ([]string, error) {
 		panic(err)
 	}
 
-	replacements := buildReplacements(ports)
+	replacements := buildReplacements(ports, "$${")
 
 	// Note, this can technically specify the same var multiple times.
 	// Last one wins - hope that's what you wanted!
