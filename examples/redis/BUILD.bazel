@@ -4,19 +4,21 @@ itest_service(
     name = "redis",
     args = [
         "--port",
-        "0",
-        "--unixsocket",
-        "$${TMPDIR}/redis.sock",
-        "--unixsocketperm",
-        "770",
+        "$${PORT}",
         "--dir",
         "$${TMPDIR}",
     ],
+    autoassign_port = True,
     exe = "@com_github_redis_redis//:redis",
     health_check = "@com_github_redis_redis//:redis_cli",
     health_check_args = [
-        "-s",
-        "$${TMPDIR}/redis.sock",
+        "-h",
+        "localhost",
+        "-p",
+        "$${PORT}",
         "PING",
+    ],
+    tags = [
+        "requires-network",
     ],
 )

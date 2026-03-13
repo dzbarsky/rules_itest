@@ -9,11 +9,39 @@ load(
     _service_test = "service_test",
 )
 
+def _to_relative_port(label):
+    return str(native.package_relative_label(label))
+
+def _to_relative_named_port(label, name):
+    return _to_relative_port(label + "." + name)
+
 def port(label):
-    return "$${%s}" % (str(native.package_relative_label(label)))
+    """This function is used to reference the auto assigned port of a service in the `args` or `env` attributes of an `itest_service` or `itest_task`.
+
+    To reference the auto assigned port in the `itest_service_group` use `port_alias` instead
+    """
+    return "$${%s}" % _to_relative_port(label)
 
 def named_port(label, name):
-    return port(label + "." + name)
+    """This function is used to reference a named port of a service in the `args` or `env` attributes of an `itest_service` or `itest_task`.
+
+    To reference a named port in the `itest_service_group` use `named_port_alias` instead
+    """
+    return port(_to_relative_named_port(label, name))
+
+def port_alias(label):
+    """This function is used to reference the auto assigned port of a service in the `aliases` attribute of an `itest_service_group`.
+
+    To reference the auto assigned port in `itest_service` or `itest_task` use `port` instead
+    """
+    return _to_relative_port(label)
+
+def named_port_alias(label, name):
+    """This function is used to reference a named port of a service in the `aliases` attribute of an `itest_service_group`.
+
+    To reference a named port in `itest_service` or `itest_task` use `named_port` instead
+    """
+    return _to_relative_named_port(label, name)
 
 def itest_service(name, tags = [], hygienic = True, named_ports = [], **kwargs):
     if "port" in kwargs:
