@@ -4,6 +4,27 @@ itest_service(
     name = "redis",
     args = [
         "--port",
+        "0",
+        "--unixsocket",
+        "$${TMPDIR}/redis.sock",
+        "--unixsocketperm",
+        "770",
+        "--dir",
+        "$${TMPDIR}",
+    ],
+    exe = "@com_github_redis_redis//:redis",
+    health_check = "@com_github_redis_redis//:redis_cli",
+    health_check_args = [
+        "-s",
+        "$${TMPDIR}/redis.sock",
+        "PING",
+    ],
+)
+
+itest_service(
+    name = "redis_network",
+    args = [
+        "--port",
         "$${PORT}",
         "--dir",
         "$${TMPDIR}",
@@ -21,4 +42,5 @@ itest_service(
     tags = [
         "requires-network",
     ],
+    visibility = ["//visibility:public"],
 )

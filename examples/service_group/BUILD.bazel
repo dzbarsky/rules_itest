@@ -1,0 +1,15 @@
+load("@rules_itest//:itest.bzl", "itest_service_group", "port_alias")
+
+itest_service_group(
+    name = "group",
+    port_aliases = {
+        "dynamodb": port_alias("//dynamodb"),
+        "mysql": port_alias("//mysql:mysql_listening_on_port"),
+        "redis": port_alias("//redis:redis_network"),
+    },
+    services = [
+        "//dynamodb:dynamodb",
+        "//mysql:mysql_listening_on_port",
+        "//redis:redis_network",
+    ],
+)
