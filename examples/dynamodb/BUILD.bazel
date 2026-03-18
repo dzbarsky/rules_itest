@@ -48,6 +48,7 @@ itest_service(
     autoassign_port = True,
     exe = ":bin",
     health_check = ":health_check",
+    visibility = ["//visibility:public"],
 )
 
 go_library(

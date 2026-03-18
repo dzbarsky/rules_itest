@@ -20,3 +20,27 @@ itest_service(
         "PING",
     ],
 )
+
+itest_service(
+    name = "redis_network",
+    args = [
+        "--port",
+        "$${PORT}",
+        "--dir",
+        "$${TMPDIR}",
+    ],
+    autoassign_port = True,
+    exe = "@com_github_redis_redis//:redis",
+    health_check = "@com_github_redis_redis//:redis_cli",
+    health_check_args = [
+        "-h",
+        "localhost",
+        "-p",
+        "$${PORT}",
+        "PING",
+    ],
+    tags = [
+        "requires-network",
+    ],
+    visibility = ["//visibility:public"],
+)

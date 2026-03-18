@@ -253,7 +253,7 @@ _itest_service_attrs = _itest_binary_attrs | {
         For example, the following Bash command:
         `PORT=$($GET_ASSIGNED_PORT_BIN @@//label/for:service)`""",
     ),
-    "port": attr.label(doc="Internal"),
+    "port": attr.label(doc = "Internal"),
     "named_ports": attr.label_keyed_string_dict(
         doc = """For each element of the list, the service manager will pick a free port and assign it to the service.
         The port's fully-qualified name is the service's fully-qualified label and the port name, separated by a colon.
@@ -375,7 +375,9 @@ _itest_service_group_attrs = _svcinit_attrs | {
     "port_aliases": attr.string_dict(
         doc = """Port aliases allow you to 're-export' another service's port as belonging to this service group.
 This can be used to create abstractions (such as an itest_service combined with an itest_task) but not leak
-their implementation through how client code accesses port names.""",
+their implementation naming details through how client code accesses port names.
+
+Use the functions `port_alias` and `named_port_alias` to reference ports from the services to alias ports for""",
     ),
     "services": attr.label_list(
         providers = [_ServiceGroupInfo],
