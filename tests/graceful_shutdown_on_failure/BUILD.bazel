@@ -1,0 +1,32 @@
+load("@rules_go//go:def.bzl", "go_binary")
+load("@rules_itest//:itest.bzl", "itest_service", "service_test")
+load(":check_graceful_shutdown.bzl", "check_graceful_shutdown_test")
+
+go_binary(
+    name = "service",
+    srcs = ["main.go"],
+    tags = ["manual"],
+)
+
+itest_service(
+    name = "graceful_service",
+    args = ["$${PORT}"],
+    autoassign_port = True,
+    exe = ":service",
+    http_health_check_address = "http://127.0.0.1:$${PORT}",
+    tags = ["manual"],
+)
+
+service_test(
+    name = "_failing_test_with_service",
+    services = [
+        ":graceful_service",
+    ],
+    tags = ["manual"],
+    test = "@rules_itest//:exit1",
+)
+
+check_graceful_shutdown_test(
+    name = "graceful_shutdown_on_failure_test",
+    service_test = ":_failing_test_with_service",
+)

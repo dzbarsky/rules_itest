@@ -139,6 +139,7 @@ func main() {
 
 	r, err := runner.New(ctx, serviceSpecs)
 	must(err)
+	defer r.StopAll()
 
 	servicesErrCh := make(chan error, len(unversionedSpecs))
 
@@ -245,6 +246,8 @@ func main() {
 
 		fmt.Println()
 
+		exitCode := 0
+
 		if shouldHotReload && !enablePerServiceReload {
 			fmt.Println()
 			fmt.Println("###########################################################################################")
@@ -302,13 +305,18 @@ func main() {
 			if testErr != nil {
 				log.Printf("Encountered error during test run: %s\n", testErr)
 				if isOneShot {
-					os.Exit(1)
+					exitCode = 1
 				}
 			}
 		case serviceErr := <-servicesErrCh:
 			log.Print(serviceErr)
 			if isOneShot {
-				log.Fatal("Service exited uncleanly, marking test as failed.\n\n")
+				log.Println("Service exited uncleanly, marking test as failed.")
+				exitCode = 1
+				testCancel()
+				if testLabel != "" {
+					<-testErrCh // Wait for test process to exit
+				}
 			}
 		}
 
@@ -328,7 +336,7 @@ func main() {
 			}
 		}
 
-		if testLabel != "" {
+		if testLabel != "" && testCmd.ProcessState != nil {
 			buf.WriteString(fmt.Sprintf("%s\t%s\t%s\n",
 				testLabel, testCmd.ProcessState.UserTime(), testCmd.ProcessState.SystemTime()))
 		}
@@ -340,6 +348,9 @@ func main() {
 		must(err)
 
 		if isOneShot {
+			if exitCode != 0 {
+				os.Exit(exitCode)
+			}
 			break
 		}
 	}
