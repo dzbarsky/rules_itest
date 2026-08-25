@@ -18,7 +18,11 @@ func main() {
 	busyWaitTime := flag.Duration("busy-time", 0, "How long to busy-wait before binding the port")
 	dieAfter := flag.Duration("die-after", 0, "How long to wait before self-destructing")
 	fileToOpen := flag.String("file-to-open", "", "A file to open to check runfiles")
-	soReuseport := flag.Bool("so-reuseport", false, "If true, sets SO_REUSEPORT when binding the address")
+	soReuseport := flag.Bool(
+		"so-reuseport",
+		os.Getenv("RULES_ITEST_ENABLE_SO_REUSEPORT") == "1",
+		"If true, sets the platform's reusable-port socket option when binding the address",
+	)
 	port := flag.String("port", "", "Port to bind")
 
 	flag.Parse()

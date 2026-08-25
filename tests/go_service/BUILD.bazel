@@ -45,6 +45,9 @@ go_library(
         "@rules_go//go/platform:solaris": [
             "@org_golang_x_sys//unix",
         ],
+        "@rules_go//go/platform:windows": [
+            "@org_golang_x_sys//windows",
+        ],
         "//conditions:default": [],
     }),
 )

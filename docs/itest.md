@@ -19,6 +19,13 @@ query:enable-reload --@rules_itest//:enable_per_service_reload
 In addition, if the `hot_reloadable` attribute is set on an `itest_service`, the service manager will
 forward the ibazel hot-reload notification over stdin instead of restarting the service.
 
+# Reusable port reservations
+
+For each service with `so_reuseport_aware = True`, the service manager adds
+`RULES_ITEST_ENABLE_SO_REUSEPORT=1` to that service's environment. Services can use this signal to
+enable the socket option required to share their bind-only port reservation: `SO_REUSEPORT` on Unix
+or `SO_REUSEADDR` on Windows. The option must be set before binding the service socket.
+
 # Service control
 
 The service manager exposes a HTTP server on `http://127.0.0.1:{SVCCTL_PORT}`. It can be used to
@@ -66,7 +73,7 @@ continue to work as before.
 ## itest_service
 
 <pre>
-load("@rules_itest//private:itest.bzl", "itest_service")
+load("@rules_itest//:itest.bzl", "itest_service")
 
 itest_service(<a href="#itest_service-name">name</a>, <a href="#itest_service-autoassign_port">autoassign_port</a>, <a href="#itest_service-data">data</a>, <a href="#itest_service-deps">deps</a>, <a href="#itest_service-domain">domain</a>, <a href="#itest_service-enforce_graceful_shutdown">enforce_graceful_shutdown</a>, <a href="#itest_service-env">env</a>, <a href="#itest_service-exe">exe</a>,
               <a href="#itest_service-expected_start_duration">expected_start_duration</a>, <a href="#itest_service-health_check">health_check</a>, <a href="#itest_service-health_check_args">health_check_args</a>, <a href="#itest_service-health_check_interval">health_check_interval</a>,
@@ -87,7 +94,7 @@ All [common binary attributes](https://bazel.build/reference/be/common-definitio
 | <a id="itest_service-deps"></a>deps |  Services/tasks that must be started before this service/task can be started. Can be `itest_service`, `itest_task`, or `itest_service_group`.   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional |  `[]`  |
 | <a id="itest_service-data"></a>data |  -   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional |  `[]`  |
 | <a id="itest_service-domain"></a>domain |  The host that this service's ports are reachable on. Defaults to `127.0.0.1` for locally-managed services.   | String | optional |  `"127.0.0.1"`  |
-| <a id="itest_service-autoassign_port"></a>autoassign_port |  If true, the service manager will pick a free port and assign it to the service. The port will be interpolated into `$${PORT}` in the service's `http_health_check_address` and `args`. It will also be exported under the target's fully qualified label in the service-port mapping.<br><br>The assigned ports for all services are available for substitution in `http_health_check_address` and `args` (in case one service needs the address for another one.) For example, the following substitution: `args = ["-client-addr", "127.0.0.1:$${@@//label/for:service}"]`<br><br>The service-port mapping is a JSON string -> int map propagated through the `ASSIGNED_PORTS` env var. For example, a port can be retrieved with the following JS code: `JSON.parse(process.env["ASSIGNED_PORTS"])["@@//label/for:service"]`.<br><br>Alternately, the env will also contain the location of a binary that can return the port, for contexts without a readily-accessible JSON parser. For example, the following Bash command: `PORT=$($GET_ASSIGNED_PORT_BIN @@//label/for:service)`   | Boolean | optional |  `False`  |
+| <a id="itest_service-autoassign_port"></a>autoassign_port |  If true, the service manager will pick a free port and assign it to the service. The port will be interpolated into `$${PORT}` in the service's `http_health_check_address` and `args`. It will also be exported under the target's fully qualified label in the service-port mapping.<br><br>The assigned ports for all services are available for substitution in `http_health_check_address` and `args` (in case one service needs the address for another one.) For example, the following substitution: `args = ["-client-addr", "127.0.0.1:$${@@//label/for:service}"]`<br><br>The service-port mapping is a JSON string -> string map propagated through the `ASSIGNED_PORTS` env var. For example, a port (as a string) can be retrieved with the following JS code: `JSON.parse(process.env["ASSIGNED_PORTS"])["@@//label/for:service"]`.<br><br>Alternately, the env will also contain the location of a binary that can return the port, for contexts without a readily-accessible JSON parser. For example, the following Bash command: `PORT=$($GET_ASSIGNED_PORT_BIN @@//label/for:service)`   | Boolean | optional |  `False`  |
 | <a id="itest_service-enforce_graceful_shutdown"></a>enforce_graceful_shutdown |  If set to True, the service manager will fail the service_test if the service had to be forcefully killed if the signal was not SIGKILL and after the shutdown timeout elapsed.<br><br>This needs to be False to have coverage of your services but don't want a them to be graceful at shutdown   | <a href="https://bazel.build/concepts/labels">Label</a> | optional |  `"@rules_itest//:enforce_graceful_shutdown"`  |
 | <a id="itest_service-env"></a>env |  The service manager will merge these variables into the environment when spawning the underlying binary.   | <a href="https://bazel.build/rules/lib/dict">Dictionary: String -> String</a> | optional |  `{}`  |
 | <a id="itest_service-exe"></a>exe |  The binary target to run.   | <a href="https://bazel.build/concepts/labels">Label</a> | required |  |
@@ -103,7 +110,7 @@ All [common binary attributes](https://bazel.build/reference/be/common-definitio
 | <a id="itest_service-ports"></a>ports |  Maps `itest_port` targets that this service binds to a port name. The port name is used as the inner key in `ITEST_SERVICES_MAP`. The desired value for each port is carried by the `itest_port` target itself (an `int` flag, default `0` = autoassign), and can be pinned from the command line via `--//pkg:my_port=8080`.   | <a href="https://bazel.build/rules/lib/dict">Dictionary: Label -> String</a> | optional |  `{}`  |
 | <a id="itest_service-shutdown_signal"></a>shutdown_signal |  The signal to send to the service when it needs to be shut down. Valid values are: SIGTERM and SIGKILL. SIGTERM is necessary to have proper coverage of services which needs to be gracefully terminated   | String | optional |  `"SIGTERM"`  |
 | <a id="itest_service-shutdown_timeout"></a>shutdown_timeout |  The duration to wait by default after sending the shutdown signal before forcefully killing the service. The syntax is based on common time duration with a number, followed by the time unit. For example, `200ms`, `1s`, `2m`, `3h`, `4d`. If not defined, the value of `_default_shutdown_timeout` will be used.   | String | optional |  `""`  |
-| <a id="itest_service-so_reuseport_aware"></a>so_reuseport_aware |  If set, the service manager will not release the autoassigned port. The service binary must use SO_REUSEPORT when binding it. This reduces the possibility of port collisions when running many service_tests in parallel, or when code binds port 0 without being aware of the port assignment mechanism.<br><br>Must only be set when `autoassign_port` is enabled or `named_ports` are used.   | Boolean | optional |  `False`  |
+| <a id="itest_service-so_reuseport_aware"></a>so_reuseport_aware |  If set, the service manager keeps a bind-only reservation for the autoassigned port for the service manager's lifetime. The service binary must use SO_REUSEPORT on Unix or SO_REUSEADDR on Windows when binding it. This reduces the possibility of port collisions when running many service_tests in parallel, or when code binds port 0 without being aware of the port assignment mechanism.<br><br>Must only be set when `autoassign_port` is enabled or `named_ports` are used.   | Boolean | optional |  `False`  |
 
 
 <a id="itest_external_service"></a>
@@ -181,7 +188,7 @@ Ports are always referenced by their target label (e.g. via `port` / `port_ref`)
 ## itest_service_group
 
 <pre>
-load("@rules_itest//private:itest.bzl", "itest_service_group")
+load("@rules_itest//:itest.bzl", "itest_service_group")
 
 itest_service_group(<a href="#itest_service_group-name">name</a>, <a href="#itest_service_group-port_aliases">port_aliases</a>, <a href="#itest_service_group-services">services</a>)
 </pre>
@@ -208,7 +215,7 @@ It can bring up multiple services with a single `bazel run` command, which is us
 ## itest_task
 
 <pre>
-load("@rules_itest//private:itest.bzl", "itest_task")
+load("@rules_itest//:itest.bzl", "itest_task")
 
 itest_task(<a href="#itest_task-name">name</a>, <a href="#itest_task-deps">deps</a>, <a href="#itest_task-data">data</a>, <a href="#itest_task-env">env</a>, <a href="#itest_task-exe">exe</a>)
 </pre>
@@ -235,7 +242,7 @@ All [common binary attributes](https://bazel.build/reference/be/common-definitio
 ## service_test
 
 <pre>
-load("@rules_itest//private:itest.bzl", "service_test")
+load("@rules_itest//:itest.bzl", "service_test")
 
 service_test(<a href="#service_test-name">name</a>, <a href="#service_test-data">data</a>, <a href="#service_test-env">env</a>, <a href="#service_test-port_aliases">port_aliases</a>, <a href="#service_test-services">services</a>, <a href="#service_test-test">test</a>)
 </pre>

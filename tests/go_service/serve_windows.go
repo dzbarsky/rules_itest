@@ -2,11 +2,38 @@
 
 package main
 
-import "net/http"
+import (
+	"context"
+	"log"
+	"net"
+	"net/http"
+	"syscall"
+
+	"golang.org/x/sys/windows"
+)
 
 func serve(port string, soReuseport bool) {
-	if soReuseport {
-		panic("SO_REUSEPORT not supported on Windows!")
+	lc := net.ListenConfig{
+		Control: func(network, address string, conn syscall.RawConn) error {
+			if !soReuseport {
+				return nil
+			}
+
+			var setSockoptErr error
+			err := conn.Control(func(fd uintptr) {
+				// FIX: Cast fd directly to syscall.Handle instead of int
+				setSockoptErr = syscall.SetsockoptInt(syscall.Handle(fd), syscall.SOL_SOCKET, windows.SO_REUSEADDR, 1)
+			})
+			if err != nil {
+				return err
+			}
+			return setSockoptErr
+		},
 	}
-	http.ListenAndServe("127.0.0.1:"+port, nil)
+
+	l, err := lc.Listen(context.Background(), "tcp", "127.0.0.1:"+port)
+	if err != nil {
+		log.Fatal(err)
+	}
+	http.Serve(l, nil)
 }

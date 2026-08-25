@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"runtime"
 	"sync"
+	"syscall"
 	"time"
 
 	"rules_itest/logger"
@@ -215,9 +216,20 @@ func (r *Runner) UpdateSpecs(serviceSpecs ServiceSpecs, ibazelCmd []byte) error 
 	}
 
 	for _, label := range updateActions.toReloadLabels {
-		_, err := r.serviceInstances[label].stdin.Write(ibazelCmd)
+		old := r.serviceInstances[label]
+		_, err := old.stdin.Write(ibazelCmd)
 		if err != nil {
-			return err
+			// Service likely crashed — fall back to a full restart.
+			log.Printf("%s hot-reload stdin write failed, falling back to restart: %v", colorize(old.VersionedServiceSpec), err)
+			old.stdin.Close()
+			if stopErr := old.StopWithSignal(syscall.SIGKILL); stopErr != nil {
+				log.Printf("%s stop during crash fallback failed: %v", colorize(old.VersionedServiceSpec), stopErr)
+			}
+			delete(r.serviceInstances, label)
+			r.serviceInstances[label], err = prepareServiceInstance(r.ctx, serviceSpecs[label])
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -271,6 +283,9 @@ func initializeServiceCmd(ctx context.Context, instance *ServiceInstance) error 
 	cmd.Env = os.Environ()
 	for k, v := range s.Env {
 		cmd.Env = append(cmd.Env, k+"="+v)
+	}
+	if s.SoReuseportAware {
+		cmd.Env = append(cmd.Env, "RULES_ITEST_ENABLE_SO_REUSEPORT=1")
 	}
 	cmd.Stdout = logger.New(s.Label+"> ", s.Color, os.Stdout)
 	cmd.Stderr = logger.New(s.Label+"> ", s.Color, os.Stderr)

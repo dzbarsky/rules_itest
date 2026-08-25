@@ -38,6 +38,18 @@ itest_service(
     ],
     autoassign_port = True,
     deferred = True,
+    deps = [":non_deferred_itest_service"],
+    exe = ":deferred",
+    http_health_check_address = "http://localhost:$${PORT}/healthz",
+    tags = ["requires-network"],
+)
+
+itest_service(
+    name = "non_deferred_itest_service",
+    args = [
+        "$${PORT}",
+    ],
+    autoassign_port = True,
     exe = ":deferred",
     http_health_check_address = "http://localhost:$${PORT}/healthz",
     tags = ["requires-network"],

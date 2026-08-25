@@ -7,12 +7,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"math"
 	"net"
 	"os"
 	"os/exec"
 	"os/signal"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -76,9 +78,13 @@ func main() {
 		}()
 	}
 
-	// Sockets have a short max path length (108 chars) so the TEST_TMPDIR path is way too long.
-	// Put them in the OS temp location - note that this is per-test (i.e. hermetic) on linux anyway.
-	socketDir, err := os.MkdirTemp("", "")
+	// Unix sockets have a 108-character path limit, and the macOS temporary directory can exceed it.
+	// Use /tmp on macOS and Go's platform-specific temporary directory on other platforms.
+	socketTempDir := ""
+	if runtime.GOOS == "darwin" {
+		socketTempDir = "/tmp"
+	}
+	socketDir, err := os.MkdirTemp(socketTempDir, "")
 	must(err)
 	os.Setenv("SOCKET_DIR", socketDir)
 	defer os.RemoveAll(socketDir)
@@ -118,8 +124,9 @@ func main() {
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	must(err)
 
-	portsMap, servicesMap, err := assignPorts(unversionedSpecs)
+	portsMap, servicesMap, reservedPorts, err := assignPorts(unversionedSpecs)
 	must(err)
+	defer closeReservedPorts(reservedPorts)
 
 	// Expose the rich port/service maps. These are inherited by both the test binary and
 	// all child services since they spawn with os.Environ() as their base.
@@ -294,17 +301,16 @@ func main() {
 
 			testCancel()
 
-			// TODO(zbarsky): what is the right behavior here when services are crashing in ibazel mode?
-
-			// This is a brittle way of draining a channel in a nonblocking way,
-			// consider instead signalling cancellation of the services with a
-			// context, letting them close the channel, and using a waitgroup to
-			// wait for them to exit.
+		// This is a brittle way of draining a channel in a nonblocking way,
+		// consider instead signalling cancellation of the services with a
+		// context, letting them close the channel, and using a waitgroup to
+		// wait for them to exit.
+		// See: https://github.com/hermeticbuild/rules_itest/issues/72
 		Drain:
 			for {
 				select {
-				case <-servicesErrCh:
-					// nothing
+				case crashErr := <-servicesErrCh:
+					log.Printf("Discarding pending service error before reload: %v", crashErr)
 				default:
 					break Drain
 				}
@@ -379,9 +385,10 @@ func readServiceSpecs(
 func assignPorts(
 	serviceSpecs map[string]svclib.ServiceSpec,
 ) (
-	svclib.PortsMap, svclib.ServicesMap, error,
+	svclib.PortsMap, svclib.ServicesMap, map[string][]io.Closer, error,
 ) {
-	var toClose []net.Listener
+	var toClose []io.Closer
+	reservedPorts := map[string][]io.Closer{}
 	portsMap := svclib.PortsMap{}
 	servicesMap := svclib.ServicesMap{}
 
@@ -418,7 +425,7 @@ func assignPorts(
 
 		for _, binding := range spec.PortBindings {
 			if other, ok := boundBy[binding.Target]; ok && other != label {
-				return nil, nil, fmt.Errorf(
+				return nil, nil, nil, fmt.Errorf(
 					"port %q is bound by multiple services: %q and %q. A port may only be bound once",
 					binding.Target, other, label,
 				)
@@ -434,36 +441,51 @@ func assignPorts(
 				continue
 			}
 
-			// Internal service: bind the port so we can discover an autoassigned one and reserve it.
+			// Internal service: reserve the port so we can discover an autoassigned one and hold it.
 			// Note, this can cause collisions. So be careful!
-			// To avoid port collisions, set the `so_reuseport_aware` option on the service definition
-			// and use the SO_REUSEPORT socket option in your services.
-			//
-			// We do a bit of a dance here to set SO_LINGER to 0. For details, see
-			// https://stackoverflow.com/questions/71975992/what-really-is-the-linger-time-that-can-be-set-with-so-linger-on-sockets
-			lc := net.ListenConfig{
-				Control: func(network, address string, conn syscall.RawConn) error {
-					var setSockoptErr error
-					err := conn.Control(func(fd uintptr) {
-						setSockoptErr = setSockoptsForPortAssignment(fd, &syscall.Linger{
-							Onoff:  1,
-							Linger: 0,
+			// To avoid port collisions, set so_reuseport_aware on the service definition
+			// and use SO_REUSEPORT on Unix or SO_REUSEADDR on Windows in your services.
+			var reservedPort io.Closer
+			var portStr string
+			if spec.SoReuseportAware {
+				requestedPort, parseErr := strconv.Atoi(binding.Value)
+				if parseErr != nil || requestedPort < 0 || requestedPort > 65535 {
+					return nil, nil, nil, fmt.Errorf("invalid port %q for %s", binding.Value, label)
+				}
+				var err error
+				reservedPort, portStr, err = reserveReusablePort(requestedPort)
+				if err != nil {
+					return nil, nil, nil, err
+				}
+			} else {
+				// We do a bit of a dance here to set SO_LINGER to 0. For details, see
+				// https://stackoverflow.com/questions/71975992/what-really-is-the-linger-time-that-can-be-set-with-so-linger-on-sockets
+				lc := net.ListenConfig{
+					Control: func(network, address string, conn syscall.RawConn) error {
+						var setSockoptErr error
+						err := conn.Control(func(fd uintptr) {
+							setSockoptErr = setSockoptsForPortAssignment(fd, &syscall.Linger{
+								Onoff:  1,
+								Linger: 0,
+							})
 						})
-					})
-					if err != nil {
-						return err
-					}
-					return setSockoptErr
-				},
-			}
+						if err != nil {
+							return err
+						}
+						return setSockoptErr
+					},
+				}
 
-			listener, err := lc.Listen(context.Background(), "tcp", "127.0.0.1:"+binding.Value)
-			if err != nil {
-				return nil, nil, err
-			}
-			_, portStr, err := net.SplitHostPort(listener.Addr().String())
-			if err != nil {
-				return nil, nil, err
+				listener, err := lc.Listen(context.Background(), "tcp", "127.0.0.1:"+binding.Value)
+				if err != nil {
+					return nil, nil, nil, err
+				}
+				_, portStr, err = net.SplitHostPort(listener.Addr().String())
+				if err != nil {
+					listener.Close()
+					return nil, nil, nil, err
+				}
+				reservedPort = listener
 			}
 
 			if !terseOutput {
@@ -473,15 +495,16 @@ func assignPorts(
 			register(label, binding.Name, domain, portStr, binding.Target, binding.Aliases)
 
 			if !spec.SoReuseportAware {
-				toClose = append(toClose, listener)
+				toClose = append(toClose, reservedPort)
+			} else {
+				reservedPorts[label] = append(reservedPorts[label], reservedPort)
 			}
 		}
 	}
 
-	for _, listener := range toClose {
-		err := listener.Close()
-		if err != nil {
-			return nil, nil, err
+	for _, reservedPort := range toClose {
+		if err := reservedPort.Close(); err != nil {
+			return nil, nil, nil, err
 		}
 	}
 
@@ -507,10 +530,20 @@ func assignPorts(
 
 	serializedPorts, err := portsMap.AssignedPorts().Marshal()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	os.Setenv("ASSIGNED_PORTS", string(serializedPorts))
-	return portsMap, servicesMap, nil
+	return portsMap, servicesMap, reservedPorts, nil
+}
+
+func closeReservedPorts(reservedPorts map[string][]io.Closer) {
+	for label, ports := range reservedPorts {
+		for _, port := range ports {
+			if err := port.Close(); err != nil {
+				log.Printf("failed to close reusable port reservation for %s: %v\n", label, err)
+			}
+		}
+	}
 }
 
 func augmentServiceSpecs(

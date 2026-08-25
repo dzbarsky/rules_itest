@@ -9,8 +9,9 @@ bazel_dep(name = "bazel_skylib", version = "1.8.2")
 bazel_dep(name = "platforms", version = "1.0.0")
 bazel_dep(name = "rules_shell", version = "0.6.1")
 bazel_dep(name = "rules_java", version = "9.3.0")
-
+bazel_dep(name = "redis", version = "8.6.2.bcr.1")
 bazel_dep(name = "llvm", version = "0.8.4")
+
 register_toolchains("@llvm//toolchain:all")
 
 bazel_dep(name = "gazelle", version = "0.47.0")
@@ -77,14 +78,6 @@ maven.install(
 use_repo(maven, "maven", "unpinned_maven")
 
 http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
-http_archive(
-    name = "com_github_redis_redis",
-    build_file = "//redis:BUILD.redis",
-    integrity = "sha256-I65GNgUUsl+llqwrMUDMuTKCwqFv5fbYpNPoM2ENZqw=",
-    strip_prefix = "redis-6.2.14",
-    urls = ["https://github.com/redis/redis/archive/refs/tags/6.2.14.tar.gz"],
-)
 
 http_archive(
     name = "sqlite4java",

@@ -1,9 +1,11 @@
-load("@rules_go//go:def.bzl", "go_binary", "go_library")
+load("@rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
 
 go_library(
     name = "svcinit_lib",
     srcs = [
         "main.go",
+        "reserve_reusable_port_unix.go",
+        "reserve_reusable_port_windows.go",
         "set_sockopts_for_port_assignment_unix.go",
         "set_sockopts_for_port_assignment_windows.go",
     ],
@@ -49,8 +51,17 @@ go_library(
         "@rules_go//go/platform:solaris": [
             "@org_golang_x_sys//unix",
         ],
+        "@rules_go//go/platform:windows": [
+            "@org_golang_x_sys//windows",
+        ],
         "//conditions:default": [],
     }),
+)
+
+go_test(
+    name = "svcinit_test",
+    srcs = ["reserve_reusable_port_test.go"],
+    embed = [":svcinit_lib"],
 )
 
 go_binary(

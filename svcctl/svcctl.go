@@ -85,9 +85,10 @@ func handleStart(ctx context.Context, r *runner.Runner, serviceErrCh chan error,
 				continue
 			}
 
-			depsErr := s.WaitUntilHealthy(ctx)
+			depsErr := depService.WaitUntilHealthy(ctx)
 			if depsErr != nil {
 				http.Error(w, fmt.Sprintf("Failed to wait for %q until healthy", dep), http.StatusInternalServerError)
+				return
 			}
 		}
 	}

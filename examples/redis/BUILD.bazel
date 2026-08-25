@@ -12,8 +12,8 @@ itest_service(
         "--dir",
         "$${TMPDIR}",
     ],
-    exe = "@com_github_redis_redis//:redis",
-    health_check = "@com_github_redis_redis//:redis_cli",
+    exe = "@redis//:redis-server",
+    health_check = "@redis//:redis-cli",
     health_check_args = [
         "-s",
         "$${TMPDIR}/redis.sock",
@@ -30,8 +30,8 @@ itest_service(
         "$${TMPDIR}",
     ],
     autoassign_port = True,
-    exe = "@com_github_redis_redis//:redis",
-    health_check = "@com_github_redis_redis//:redis_cli",
+    exe = "@redis//:redis-server",
+    health_check = "@redis//:redis-cli",
     health_check_args = [
         "-h",
         "localhost",
