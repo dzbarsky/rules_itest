@@ -399,11 +399,11 @@ func assignPorts(
 	// register binds a resolved port under its target label and every alias, in the rich
 	// port/service maps. The legacy string->port view (ASSIGNED_PORTS, substitution,
 	// /v0/port) is derived from portsMap on demand.
-	register := func(serviceLabel, portName, domain, portStr, target string, aliases []string) {
+	register := func(serviceLabel, portName, hostname, portStr, target string, aliases []string) {
 		info := svclib.BindingInfo{
-			Origin: net.JoinHostPort(domain, portStr),
-			Domain: domain,
-			Port:   portStr,
+			Origin:   net.JoinHostPort(hostname, portStr),
+			Hostname: hostname,
+			Port:     portStr,
 		}
 
 		keys := append([]string{target}, aliases...)
@@ -418,9 +418,9 @@ func assignPorts(
 			continue
 		}
 
-		domain := spec.Domain
-		if domain == "" {
-			domain = "127.0.0.1"
+		hostname := spec.Hostname
+		if hostname == "" {
+			hostname = "127.0.0.1"
 		}
 
 		for _, binding := range spec.PortBindings {
@@ -435,9 +435,9 @@ func assignPorts(
 			// External services are not managed by us; their ports are reachable as-is at the FQDN.
 			if spec.Type == "external_service" {
 				if !terseOutput {
-					log.Printf("Registering external port %s for %s (%s)\n", binding.Value, binding.Target, domain)
+					log.Printf("Registering external port %s for %s (%s)\n", binding.Value, binding.Target, hostname)
 				}
-				register(label, binding.Name, domain, binding.Value, binding.Target, binding.Aliases)
+				register(label, binding.Name, hostname, binding.Value, binding.Target, binding.Aliases)
 				continue
 			}
 
@@ -492,7 +492,7 @@ func assignPorts(
 				log.Printf("Assigning port %s to %s\n", portStr, binding.Target)
 			}
 
-			register(label, binding.Name, domain, portStr, binding.Target, binding.Aliases)
+			register(label, binding.Name, hostname, portStr, binding.Target, binding.Aliases)
 
 			if !spec.SoReuseportAware {
 				toClose = append(toClose, reservedPort)
@@ -664,9 +664,9 @@ func buildReplacements(portsMap svclib.PortsMap, prefix string) []Replacement {
 	for label, info := range portsMap {
 		replacements = append(replacements,
 			Replacement{Old: prefix + label + "}", New: info.Port},
-			// Rich origin/domain tokens. A "::" delimiter is used since it can't appear in a label.
+			// Rich origin/hostname tokens. A "::" delimiter is used since it can't appear in a label.
 			Replacement{Old: prefix + label + "::origin}", New: info.Origin},
-			Replacement{Old: prefix + label + "::domain}", New: info.Domain},
+			Replacement{Old: prefix + label + "::hostname}", New: info.Hostname},
 		)
 	}
 	return replacements

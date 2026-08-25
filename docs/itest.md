@@ -47,7 +47,7 @@ This can be used in conjunction with the `/v0/port` API to let other tools inter
 # Ports, hostnames, and external services
 
 Ports can be declared as first-class targets with `itest_port`. A port is a handle whose value is an `int`
-build-setting flag (`0` = autoassign); the host/domain is supplied by the internal or external service that
+build-setting flag (`0` = autoassign); the hostname is supplied by the internal or external service that
 binds it. The value can be pinned from the command line via `--//pkg:my_port=8080`. A given port may only
 ever be bound once.
 
@@ -61,9 +61,9 @@ into the test binary and every child service, and are also available through the
 control APIs:
 
 - `ITEST_PORTS_MAP`: a JSON object keyed by port target label (and aliases):
-  `{"@@//pkg:my_port": {"origin": "127.0.0.1:54321", "domain": "127.0.0.1", "port": "54321"}, ...}`
+  `{"@@//pkg:my_port": {"origin": "127.0.0.1:54321", "hostname": "127.0.0.1", "port": "54321"}, ...}`
 - `ITEST_SERVICES_MAP`: a JSON object keyed by service target label, then by port name (and aliases):
-  `{"@@//pkg:my_service": {"http": {"origin": "...", "domain": "...", "port": "..."}}, ...}`
+  `{"@@//pkg:my_service": {"http": {"origin": "...", "hostname": "...", "port": "..."}}, ...}`
 
 The legacy `ASSIGNED_PORTS` env var, the `GET_ASSIGNED_PORT_BIN` helper, and the `/v0/port` endpoint all
 continue to work as before.
@@ -75,7 +75,7 @@ continue to work as before.
 <pre>
 load("@rules_itest//:itest.bzl", "itest_service")
 
-itest_service(<a href="#itest_service-name">name</a>, <a href="#itest_service-autoassign_port">autoassign_port</a>, <a href="#itest_service-data">data</a>, <a href="#itest_service-deps">deps</a>, <a href="#itest_service-domain">domain</a>, <a href="#itest_service-enforce_graceful_shutdown">enforce_graceful_shutdown</a>, <a href="#itest_service-env">env</a>, <a href="#itest_service-exe">exe</a>,
+itest_service(<a href="#itest_service-name">name</a>, <a href="#itest_service-autoassign_port">autoassign_port</a>, <a href="#itest_service-data">data</a>, <a href="#itest_service-deps">deps</a>, <a href="#itest_service-hostname">hostname</a>, <a href="#itest_service-enforce_graceful_shutdown">enforce_graceful_shutdown</a>, <a href="#itest_service-env">env</a>, <a href="#itest_service-exe">exe</a>,
               <a href="#itest_service-expected_start_duration">expected_start_duration</a>, <a href="#itest_service-health_check">health_check</a>, <a href="#itest_service-health_check_args">health_check_args</a>, <a href="#itest_service-health_check_interval">health_check_interval</a>,
               <a href="#itest_service-health_check_timeout">health_check_timeout</a>, <a href="#itest_service-hot_reloadable">hot_reloadable</a>, <a href="#itest_service-http_health_check_address">http_health_check_address</a>, <a href="#itest_service-named_ports">named_ports</a>,
               <a href="#itest_service-port">port</a>, <a href="#itest_service-ports">ports</a>, <a href="#itest_service-shutdown_signal">shutdown_signal</a>, <a href="#itest_service-shutdown_timeout">shutdown_timeout</a>, <a href="#itest_service-so_reuseport_aware">so_reuseport_aware</a>)
@@ -93,7 +93,7 @@ All [common binary attributes](https://bazel.build/reference/be/common-definitio
 | <a id="itest_service-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | required |  |
 | <a id="itest_service-deps"></a>deps |  Services/tasks that must be started before this service/task can be started. Can be `itest_service`, `itest_task`, or `itest_service_group`.   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional |  `[]`  |
 | <a id="itest_service-data"></a>data |  -   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional |  `[]`  |
-| <a id="itest_service-domain"></a>domain |  The host that this service's ports are reachable on. Defaults to `127.0.0.1` for locally-managed services.   | String | optional |  `"127.0.0.1"`  |
+| <a id="itest_service-hostname"></a>hostname |  The host that this service's ports are reachable on. Defaults to `127.0.0.1` for locally-managed services.   | String | optional |  `"127.0.0.1"`  |
 | <a id="itest_service-autoassign_port"></a>autoassign_port |  If true, the service manager will pick a free port and assign it to the service. The port will be interpolated into `$${PORT}` in the service's `http_health_check_address` and `args`. It will also be exported under the target's fully qualified label in the service-port mapping.<br><br>The assigned ports for all services are available for substitution in `http_health_check_address` and `args` (in case one service needs the address for another one.) For example, the following substitution: `args = ["-client-addr", "127.0.0.1:$${@@//label/for:service}"]`<br><br>The service-port mapping is a JSON string -> string map propagated through the `ASSIGNED_PORTS` env var. For example, a port (as a string) can be retrieved with the following JS code: `JSON.parse(process.env["ASSIGNED_PORTS"])["@@//label/for:service"]`.<br><br>Alternately, the env will also contain the location of a binary that can return the port, for contexts without a readily-accessible JSON parser. For example, the following Bash command: `PORT=$($GET_ASSIGNED_PORT_BIN @@//label/for:service)`   | Boolean | optional |  `False`  |
 | <a id="itest_service-enforce_graceful_shutdown"></a>enforce_graceful_shutdown |  If set to True, the service manager will fail the service_test if the service had to be forcefully killed if the signal was not SIGKILL and after the shutdown timeout elapsed.<br><br>This needs to be False to have coverage of your services but don't want a them to be graceful at shutdown   | <a href="https://bazel.build/concepts/labels">Label</a> | optional |  `"@rules_itest//:enforce_graceful_shutdown"`  |
 | <a id="itest_service-env"></a>env |  The service manager will merge these variables into the environment when spawning the underlying binary.   | <a href="https://bazel.build/rules/lib/dict">Dictionary: String -> String</a> | optional |  `{}`  |
@@ -120,7 +120,7 @@ All [common binary attributes](https://bazel.build/reference/be/common-definitio
 <pre>
 load("@rules_itest//:itest.bzl", "itest_external_service")
 
-itest_external_service(<a href="#itest_external_service-name">name</a>, <a href="#itest_external_service-data">data</a>, <a href="#itest_external_service-deferred">deferred</a>, <a href="#itest_external_service-deps">deps</a>, <a href="#itest_external_service-domain">domain</a>, <a href="#itest_external_service-expected_start_duration">expected_start_duration</a>, <a href="#itest_external_service-health_check">health_check</a>,
+itest_external_service(<a href="#itest_external_service-name">name</a>, <a href="#itest_external_service-data">data</a>, <a href="#itest_external_service-deferred">deferred</a>, <a href="#itest_external_service-deps">deps</a>, <a href="#itest_external_service-hostname">hostname</a>, <a href="#itest_external_service-expected_start_duration">expected_start_duration</a>, <a href="#itest_external_service-health_check">health_check</a>,
                        <a href="#itest_external_service-health_check_args">health_check_args</a>, <a href="#itest_external_service-health_check_interval">health_check_interval</a>, <a href="#itest_external_service-health_check_timeout">health_check_timeout</a>, <a href="#itest_external_service-http_health_check_address">http_health_check_address</a>,
                        <a href="#itest_external_service-port_numbers">port_numbers</a>, <a href="#itest_external_service-ports">ports</a>)
 </pre>
@@ -140,7 +140,7 @@ Bazel `select()` to run a test suite against production-like instances.
 | Name  | Description | Type | Mandatory | Default |
 | :------------- | :------------- | :------------- | :------------- | :------------- |
 | <a id="itest_external_service-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | required |  |
-| <a id="itest_external_service-domain"></a>domain |  The fully-qualified domain name (FQDN) that this external service is reachable on, e.g. `my_service.test.mycompany.com`.   | String | required |  |
+| <a id="itest_external_service-hostname"></a>hostname |  The fully-qualified domain name (FQDN) that this external service is reachable on, e.g. `my_service.test.mycompany.com`.   | String | required |  |
 | <a id="itest_external_service-ports"></a>ports |  Maps `itest_port` targets that this external service exposes to a port name. Provide the literal port number for each name via `port_numbers`.   | <a href="https://bazel.build/rules/lib/dict">Dictionary: Label -> String</a> | optional |  `{}`  |
 | <a id="itest_external_service-port_numbers"></a>port_numbers |  Maps each port name (from `ports`) to the literal port number it is reachable on at the FQDN.   | <a href="https://bazel.build/rules/lib/dict">Dictionary: String -> String</a> | optional |  `{}`  |
 | <a id="itest_external_service-data"></a>data |  -   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional |  `[]`  |

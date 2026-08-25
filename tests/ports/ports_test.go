@@ -12,7 +12,7 @@ import (
 
 type bindingInfo struct {
 	Origin string `json:"origin"`
-	Domain string `json:"domain"`
+	Hostname string `json:"hostname"`
 	Port   string `json:"port"`
 }
 
@@ -44,7 +44,7 @@ func loadServicesMap(t *testing.T) map[string]map[string]bindingInfo {
 
 func TestPortsMap(t *testing.T) {
 	target := os.Getenv("EXPECT_PORT_TARGET")
-	wantDomain := os.Getenv("EXPECT_DOMAIN")
+	wantHostname := os.Getenv("EXPECT_HOSTNAME")
 	wantPort := os.Getenv("EXPECT_PORT") // optional exact match
 
 	portsMap := loadPortsMap(t)
@@ -52,8 +52,8 @@ func TestPortsMap(t *testing.T) {
 	if !ok {
 		t.Fatalf("ITEST_PORTS_MAP missing port target %q; got %v", target, portsMap)
 	}
-	if info.Domain != wantDomain {
-		t.Errorf("port %q domain = %q, want %q", target, info.Domain, wantDomain)
+	if info.Hostname != wantHostname {
+		t.Errorf("port %q hostname = %q, want %q", target, info.Hostname, wantHostname)
 	}
 	if info.Port == "" {
 		t.Errorf("port %q has empty port", target)
@@ -61,7 +61,7 @@ func TestPortsMap(t *testing.T) {
 	if wantPort != "" && info.Port != wantPort {
 		t.Errorf("port %q port = %q, want %q", target, info.Port, wantPort)
 	}
-	if want := info.Domain + ":" + info.Port; info.Origin != want {
+	if want := info.Hostname + ":" + info.Port; info.Origin != want {
 		t.Errorf("port %q origin = %q, want %q", target, info.Origin, want)
 	}
 }
@@ -69,7 +69,7 @@ func TestPortsMap(t *testing.T) {
 func TestServicesMap(t *testing.T) {
 	service := os.Getenv("EXPECT_SERVICE")
 	portName := os.Getenv("EXPECT_PORT_NAME")
-	wantDomain := os.Getenv("EXPECT_DOMAIN")
+	wantHostname := os.Getenv("EXPECT_HOSTNAME")
 
 	servicesMap := loadServicesMap(t)
 	ports, ok := servicesMap[service]
@@ -80,8 +80,8 @@ func TestServicesMap(t *testing.T) {
 	if !ok {
 		t.Fatalf("service %q missing port name %q; got %v", service, portName, ports)
 	}
-	if info.Domain != wantDomain {
-		t.Errorf("service %q port %q domain = %q, want %q", service, portName, info.Domain, wantDomain)
+	if info.Hostname != wantHostname {
+		t.Errorf("service %q port %q hostname = %q, want %q", service, portName, info.Hostname, wantHostname)
 	}
 	if info.Port == "" {
 		t.Errorf("service %q port %q has empty port", service, portName)
@@ -108,8 +108,8 @@ func TestSvcctlListAll(t *testing.T) {
 	if apiPorts[target].Port != envPorts[target].Port {
 		t.Errorf("/v0/ports port for %q = %q, want %q", target, apiPorts[target].Port, envPorts[target].Port)
 	}
-	if apiPorts[target].Domain != envPorts[target].Domain {
-		t.Errorf("/v0/ports domain for %q = %q, want %q", target, apiPorts[target].Domain, envPorts[target].Domain)
+	if apiPorts[target].Hostname != envPorts[target].Hostname {
+		t.Errorf("/v0/ports hostname for %q = %q, want %q", target, apiPorts[target].Hostname, envPorts[target].Hostname)
 	}
 
 	// /v0/services should expose the service's port.

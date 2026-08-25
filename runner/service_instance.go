@@ -126,9 +126,11 @@ func (s *ServiceInstance) WaitUntilHealthy(ctx context.Context) error {
 // cancelled/times out, or ctx errors. It does not watch a managed process, so it is suitable for
 // services the manager does not spawn (e.g. external services).
 func (s *ServiceInstance) PollUntilHealthy(ctx context.Context) error {
+	// health_check_interval is defaulted and validated by the rule, so a parse error here
+	// indicates a malformed spec rather than a missing value.
 	sleepDuration, err := time.ParseDuration(s.HealthCheckInterval)
 	if err != nil {
-		sleepDuration = 200 * time.Millisecond
+		return fmt.Errorf("failed to parse health_check_interval %q: %w", s.HealthCheckInterval, err)
 	}
 	for {
 		if err := ctx.Err(); err != nil {

@@ -11,9 +11,9 @@ import (
 
 // BindingInfo mirrors svclib.BindingInfo for the entries returned by /v0/ports and /v0/services.
 type BindingInfo struct {
-	Origin string `json:"origin"`
-	Domain string `json:"domain"`
-	Port   string `json:"port"`
+	Origin   string `json:"origin"`
+	Hostname string `json:"hostname"`
+	Port     string `json:"port"`
 }
 
 type SvcctlClient struct {

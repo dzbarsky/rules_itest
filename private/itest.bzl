@@ -46,7 +46,7 @@ This can be used in conjunction with the `/v0/port` API to let other tools inter
 # Ports, hostnames, and external services
 
 Ports can be declared as first-class targets with `itest_port`. A port is a handle whose value is an `int`
-build-setting flag (`0` = autoassign); the host/domain is supplied by the internal or external service that
+build-setting flag (`0` = autoassign); the hostname is supplied by the internal or external service that
 binds it. The value can be pinned from the command line via `--//pkg:my_port=8080`. A given port may only
 ever be bound once.
 
@@ -60,9 +60,9 @@ into the test binary and every child service, and are also available through the
 control APIs:
 
 - `ITEST_PORTS_MAP`: a JSON object keyed by port target label (and aliases):
-  `{"@@//pkg:my_port": {"origin": "127.0.0.1:54321", "domain": "127.0.0.1", "port": "54321"}, ...}`
+  `{"@@//pkg:my_port": {"origin": "127.0.0.1:54321", "hostname": "127.0.0.1", "port": "54321"}, ...}`
 - `ITEST_SERVICES_MAP`: a JSON object keyed by service target label, then by port name (and aliases):
-  `{"@@//pkg:my_service": {"http": {"origin": "...", "domain": "...", "port": "..."}}, ...}`
+  `{"@@//pkg:my_service": {"http": {"origin": "...", "hostname": "...", "port": "..."}}, ...}`
 
 The legacy `ASSIGNED_PORTS` env var, the `GET_ASSIGNED_PORT_BIN` helper, and the `/v0/port` endpoint all
 continue to work as before.
@@ -109,6 +109,14 @@ def _validate_unique_port_bindings(services):
                 ))
             seen[binding.target] = label
 
+def _named_port_target(label, name):
+    """Returns the port target label for a named port owned by `label` (e.g. `@@//pkg:svc.http`).
+
+    This is the analysis-phase counterpart to `_to_relative_named_port` in `//:itest.bzl`, which can
+    only run during loading. Both must agree on the `<label>.<name>` convention.
+    """
+    return label + "." + name
+
 def _port_binding(target, name, aliases, value):
     """Constructs a single canonical port binding. Shared by internal and external services."""
     return struct(
@@ -148,7 +156,7 @@ def _compute_port_bindings(ctx):
         bindings.append(_port_binding(label, "", [], str(ctx.attr.port[BuildSettingInfo].value)))
 
     for port_flag, name in ctx.attr.named_ports.items():
-        bindings.append(_port_binding(label + "." + name, name, [], str(port_flag[BuildSettingInfo].value)))
+        bindings.append(_port_binding(_named_port_target(label, name), name, [], str(port_flag[BuildSettingInfo].value)))
 
     bindings += _bind_port_targets(ctx, lambda port_target, _name: str(port_target[BuildSettingInfo].value))
 
@@ -315,7 +323,7 @@ def _itest_service_impl(ctx):
         "autoassign_port": ctx.attr.autoassign_port,
         "so_reuseport_aware": ctx.attr.so_reuseport_aware,
         "deferred": ctx.attr.deferred,
-        "domain": ctx.attr.domain,
+        "hostname": ctx.attr.hostname,
         "port_bindings": _compute_port_bindings(ctx),
         "named_ports": {
             name: str(port_flag[BuildSettingInfo].value)
@@ -363,7 +371,7 @@ _itest_service_attrs = _itest_binary_attrs | {
         `PORT=$($GET_ASSIGNED_PORT_BIN @@//label/for:service)`""",
     ),
     "port": attr.label(doc = "Internal"),
-    "domain": attr.string(
+    "hostname": attr.string(
         default = "127.0.0.1",
         doc = """The host that this service's ports are reachable on. Defaults to `127.0.0.1` for locally-managed services.""",
     ),
@@ -467,7 +475,7 @@ def _itest_external_service_impl(ctx):
 
     extra_service_spec_kwargs = {
         "type": "external_service",
-        "domain": ctx.attr.domain,
+        "hostname": ctx.attr.hostname,
         "port_bindings": bindings,
         "http_health_check_address": ctx.attr.http_health_check_address,
         "expected_start_duration": ctx.attr.expected_start_duration,
@@ -498,7 +506,7 @@ def _itest_external_service_impl(ctx):
     return _finalize_service(ctx, service, transitive_runfiles = _services_runfiles(ctx, "deps") + extra_exe_runfiles)
 
 _itest_external_service_attrs = {
-    "domain": attr.string(
+    "hostname": attr.string(
         mandatory = True,
         doc = "The fully-qualified domain name (FQDN) that this external service is reachable on, e.g. `my_service.test.mycompany.com`.",
     ),

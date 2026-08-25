@@ -53,12 +53,12 @@ def port_ref(label):
     return "$${%s}" % _to_relative_port(label)
 
 def port_origin(label):
-    """References the origin (`<domain>:<port>`) of an `itest_port` target in `args`/`env`/`http_health_check_address`."""
+    """References the origin (`<hostname>:<port>`) of an `itest_port` target in `args`/`env`/`http_health_check_address`."""
     return "$${%s::origin}" % _to_relative_port(label)
 
-def port_domain(label):
-    """References the domain (host) of an `itest_port` target in `args`/`env`/`http_health_check_address`."""
-    return "$${%s::domain}" % _to_relative_port(label)
+def port_hostname(label):
+    """References the hostname (host) of an `itest_port` target in `args`/`env`/`http_health_check_address`."""
+    return "$${%s::hostname}" % _to_relative_port(label)
 
 def itest_port(name, build_setting_default = 0, **kwargs):
     """Declares a first-class port target.

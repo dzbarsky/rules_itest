@@ -6,6 +6,7 @@ load(
     "itest_port",
     "itest_service",
     "itest_service_group",
+    "port_origin",
     "port_ref",
     "service_test",
 )
@@ -40,9 +41,25 @@ itest_port(name = "ext_db_port")
 
 itest_external_service(
     name = "external_db",
-    domain = "db.test.invalid",
+    hostname = "db.test.invalid",
     port_numbers = {"sql": "5432"},
     ports = {":ext_db_port": "sql"},
+)
+
+# A DB-style external service has no HTTP endpoint, so reachability is verified with a
+# command health check (a TCP probe) instead of `http_health_check_address`. To keep the
+# test hermetic, the external instance points at the locally-managed `db` service and the
+# probe connects to that port.
+itest_port(name = "cmd_db_port")
+
+itest_external_service(
+    name = "cmd_health_db",
+    hostname = "127.0.0.1",
+    port_numbers = {"sql": "5432"},
+    ports = {":cmd_db_port": "sql"},
+    deps = [":db"],
+    health_check = "//ports/tcp_probe",
+    health_check_args = [port_origin(":db_port")],
 )
 
 # SO_REUSEPORT awareness must be allowed with declarative `itest_port` bindings too,
@@ -89,7 +106,7 @@ service_test(
         "EXPECT_PORT_TARGET": "@@//ports:db_port",
         "EXPECT_SERVICE": "@@//ports:db",
         "EXPECT_PORT_NAME": "sql",
-        "EXPECT_DOMAIN": "127.0.0.1",
+        "EXPECT_HOSTNAME": "127.0.0.1",
     },
     services = [":db"],
     test = ":_ports_test",
@@ -101,7 +118,7 @@ service_test(
         "EXPECT_PORT_TARGET": "@@//ports:ext_db_port",
         "EXPECT_SERVICE": "@@//ports:external_db",
         "EXPECT_PORT_NAME": "sql",
-        "EXPECT_DOMAIN": "db.test.invalid",
+        "EXPECT_HOSTNAME": "db.test.invalid",
         "EXPECT_PORT": "5432",
     },
     services = [":external_db"],

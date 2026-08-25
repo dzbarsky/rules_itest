@@ -19,10 +19,10 @@ func (p *Ports) Unmarshal(data []byte) error {
 // BindingInfo is the rich, per-port description exported through ITEST_PORTS_MAP
 // and ITEST_SERVICES_MAP.
 type BindingInfo struct {
-	// Origin is "<domain>:<port>".
-	Origin string `json:"origin"`
-	Domain string `json:"domain"`
-	Port   string `json:"port"`
+	// Origin is "<hostname>:<port>".
+	Origin   string `json:"origin"`
+	Hostname string `json:"hostname"`
+	Port     string `json:"port"`
 }
 
 // PortsMap is keyed by port target label (and its aliases).

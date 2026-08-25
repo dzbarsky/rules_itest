@@ -47,9 +47,9 @@ type ServiceSpec struct {
 	ShutdownTimeout         string            `json:"shutdown_timeout"`
 	EnforceForcefulShutdown bool              `json:"enforce_graceful_shutdown"`
 	Deferred                bool              `json:"deferred"`
-	// Domain is the host that this service's ports are reachable on. Internal
+	// Hostname is the host that this service's ports are reachable on. Internal
 	// services default to "127.0.0.1"; external services set it to their FQDN.
-	Domain string `json:"domain"`
+	Hostname string `json:"hostname"`
 	// PortBindings is the canonical, target-keyed description of the ports owned by
 	// this service. It supersedes Port/NamedPorts (which are retained for
 	// backwards compatibility).
