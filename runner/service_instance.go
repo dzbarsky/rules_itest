@@ -66,7 +66,10 @@ func (s *ServiceInstance) WaitUntilHealthy(ctx context.Context) error {
 	if s.Type == "task" {
 		err := s.waitErrFn()
 		log.Printf("%s completed.\n", coloredLabel)
-		return err
+		if err != nil {
+			return fmt.Errorf("%s exited with error: %w", coloredLabel, err)
+		}
+		return nil
 	}
 
 	sleepDuration, err := time.ParseDuration(s.HealthCheckInterval)
@@ -83,7 +86,7 @@ func (s *ServiceInstance) WaitUntilHealthy(ctx context.Context) error {
 
 	for {
 		if err := s.Error(); err != nil {
-			return err
+			return fmt.Errorf("%s exited with error: %w", coloredLabel, err)
 		}
 
 		if s.isDone() {
@@ -95,7 +98,7 @@ func (s *ServiceInstance) WaitUntilHealthy(ctx context.Context) error {
 		}
 
 		if err := ctx.Err(); err != nil {
-			return err
+			return fmt.Errorf("%s never became healthy: %w", coloredLabel, err)
 		}
 
 		if s.HealthCheck(ctx, expectedStartDuration) {
