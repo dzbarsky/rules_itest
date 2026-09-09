@@ -42,15 +42,16 @@ func TestReusablePortReservation(t *testing.T) {
 	}
 	defer listener.Close()
 
-	acceptErr := make(chan error, 1)
+	type acceptResult struct {
+		conn net.Conn
+		err  error
+	}
+	accepted := make(chan acceptResult, 1)
 	go func() {
 		conn, err := listener.Accept()
-		if err != nil {
-			acceptErr <- err
-			return
-		}
-		conn.Close()
-		acceptErr <- nil
+		// Keep the accepted socket open until Dial returns. On Linux it inherits
+		// zero-linger, so closing it here can reset the client during Dial.
+		accepted <- acceptResult{conn: conn, err: err}
 	}()
 
 	conn, err := net.DialTimeout("tcp4", "127.0.0.1:"+port, time.Second)
@@ -60,10 +61,11 @@ func TestReusablePortReservation(t *testing.T) {
 	conn.Close()
 
 	select {
-	case err := <-acceptErr:
-		if err != nil {
-			t.Fatalf("accept from service listener: %v", err)
+	case result := <-accepted:
+		if result.err != nil {
+			t.Fatalf("accept from service listener: %v", result.err)
 		}
+		result.conn.Close()
 	case <-time.After(time.Second):
 		t.Fatal("connection was not accepted by the service listener")
 	}
